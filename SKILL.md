@@ -268,6 +268,26 @@ executed_nodes = []
 ~/.claude/skills/gotscs/scripts/sync-signal.sh "$SESSION_DIR" mode="$MODE"
 ```
 
+**Assert v4 schema fields present (GAP-001 guard).**
+```bash
+python3 - "$SESSION_DIR/SIGNAL_STATE.json" << 'PYEOF'
+import json, sys
+ss = json.load(open(sys.argv[1]))
+errors = []
+if ss.get("schema_version") != "2.2":
+    errors.append(f"schema_version={ss.get('schema_version')!r} (expected '2.2')")
+if "degradation_notices" not in ss:
+    errors.append("missing field: degradation_notices")
+if "review_gate_audit" not in ss:
+    errors.append("missing field: review_gate_audit")
+if errors:
+    print(f"HALT: SIGNAL_STATE schema mismatch — {'; '.join(errors)}. Re-check init-session.sh.", file=sys.stderr)
+    sys.exit(1)
+print("SIGNAL_STATE schema v4 (2.2): OK")
+PYEOF
+```
+HALT if this assertion fails — it means `init-session.sh` wrote a stale schema and graceful-degradation state will be silently lost.
+
 ---
 
 ## STEP 1 — WAVE 1: N-PREFLIGHT (inline)
