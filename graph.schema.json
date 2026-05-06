@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GOTSCS v4 graph.json schema",
+  "type": "object",
+  "required": ["metadata", "nodes", "edges"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["skill_name", "version", "determinism_class", "total_waves", "total_nodes", "total_edges", "topology"],
+      "properties": {
+        "skill_name": {"type": "string"},
+        "version": {"type": "string"},
+        "determinism_class": {"enum": ["deterministic", "seeded", "non-deterministic"]},
+        "total_waves": {"type": "integer", "maximum": 10},
+        "total_nodes": {"type": "integer", "maximum": 20},
+        "total_edges": {"type": "integer", "maximum": 60}
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "exec_type", "hat", "tier", "wave", "scale_gates", "input_dependencies", "raises_signals"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^N-[A-Z][A-Z0-9-]*$"},
+          "type": {"enum": ["PREFLIGHT", "INGEST", "ANALYZER", "DECOMPOSITION", "AGGREGATION", "GATE", "GENERATOR", "PLANNER", "SYNTHESIS", "FORMATTER", "VERIFIER", "PERSISTER", "TAILOR", "XREF", "LATERAL", "DEFIXATION", "SIMULATION", "PRECISION", "ADVERSARIAL", "CONJECTURE", "ROUTER", "ATTACKER", "EXPANSION", "CLASSIFIER", "META-ANALYZER", "RECOVERY", "FILTER", "TRIAGE", "ACTUATOR", "IO", "VALIDATOR", "SCORER", "REFINER"]},
+          "exec_type": {"enum": ["inline", "spawn"]},
+          "hat": {"enum": ["gate", "extractor", "analyzer", "aggregator", "generator", "formatter", "verifier", "persister", "no-llm", "tailor", "expander", "lateral", "filter", "validator"]},
+          "tier": {"enum": ["model-small", "model-medium", "model-large", "no-llm"]},
+          "wave": {"type": "integer", "minimum": 1, "maximum": 10}
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "source", "target", "edge_type", "signal_field"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^E[0-9]+[a-z]?$"},
+          "edge_type": {"enum": ["required", "optional", "gate-open", "forward-conditional", "back-edge", "terminal"]},
+          "join_hint": {"type": "string", "description": "Optional XOR/mode join annotation. Use 'mode-XOR: exactly one path active per execution' when two edges reach the same target but only one is ever live per mode."}
+        }
+      }
+    }
+  }
+}

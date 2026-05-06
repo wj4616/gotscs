@@ -38,10 +38,14 @@ required_output_sections: [graph_json_content, hats_json_content]
 
 **For graph_json_content:**
 
-(a) **V16 enforcement.** For every planned node with `exec_type=inline` and `hat≠formatter`: assert `token_budget ≤ 4000`. For `hat=formatter`: assert `token_budget ≤ 16000`. If any node violates the ceiling, choose:
+(a) **V16 enforcement.** Apply ALL of the following rules before emitting any node:
+
+   **Inline ceiling check:** For every planned node with `exec_type=inline` and `hat≠formatter`: assert `token_budget ≤ 4000`. For `hat=formatter`: assert `token_budget ≤ 16000`. If any node violates the ceiling, choose:
    - PREFERRED: Convert to `exec_type=spawn` when the budget reflects genuine context need (the task requires large working memory).
    - FALLBACK: Reduce `token_budget` to the ceiling value.
-   Log each reduction or promotion as `"v16_resolution": "inline-ceiling|spawn-promotion"` on the node entry. This prevents V16 failures at N-VERIFY without consuming the repair budget.
+   Log each reduction or promotion as `"v16_resolution": "inline-ceiling|spawn-promotion"` on the node entry.
+
+   **Spawn budget enforcement (mandatory — prevents V16 failure at N-VERIFY):** For EVERY node with `exec_type=spawn`: assert `spawn_budget ≥ 1`. If `spawn_budget` is 0 or absent: set `spawn_budget: 1` immediately before emission. Log as `"v16_resolution": "spawn-budget-enforced"` on the node entry. **This correction is non-optional.** Spawn nodes with `spawn_budget=0` always fail V16 because they have `token_budget ≤ 6000` AND `spawn_budget < 1`. Do not wait for N-VERIFY to catch this — fix it here.
 
 (b) **context_source injection.** When `CONTEXT_PATH` or `CONTEXT_SPEC_PATH` is non-empty (ec-skill / ec-spec / ec-both run): read `stages/N-CONTEXT-ANALYZE.md`. Parse its `classification_table`. For every node in the node list, inject two fields:
    - `"context_source"`: one of `preserved | upgraded | replaced | new` — from the matching classification_table row.
