@@ -38,7 +38,7 @@ python3 -c "import json; json.load(open('$SKILL_DIR/graph.schema.json'))" 2>/dev
 NODES=$(python3 -c "import json; print(len(json.load(open('$SKILL_DIR/graph.json'))['nodes']))")
 EDGES=$(python3 -c "import json; print(len(json.load(open('$SKILL_DIR/graph.json'))['edges']))")
 check "$NODES" "19" "node count"
-check "$EDGES" "57" "edge count"
+check "$EDGES" "58" "edge count"
 
 # --- Conditional nodes (2: N-CONTEXT-ANALYZE, N-BEHAVIORAL) ---
 COND=$(python3 -c "import json; g=json.load(open('$SKILL_DIR/graph.json')); print(sum(1 for n in g['nodes'] if n.get('conditional')))")
@@ -62,6 +62,12 @@ print(','.join(bad) if bad else 'NONE')
 for E in E50 E51 E52; do
   python3 -c "import json,sys; g=json.load(open('$SKILL_DIR/graph.json')); sys.exit(0 if any(e['id']=='$E' for e in g['edges']) else 1)" \
     && pass "v4 new back-edge: $E" || fail "missing v4 back-edge: $E"
+done
+
+# --- topology-fix edges: E53-E56 (N-CONTEXT-ANALYZE→Wave-3+AGG), E57 (N-JSON→N-SKILL-RENDER), E58 (N-PREFLIGHT→N-CONTEXT-ANALYZE) ---
+for E in E53 E54 E55 E56 E57 E58; do
+  python3 -c "import json,sys; g=json.load(open('$SKILL_DIR/graph.json')); sys.exit(0 if any(e['id']=='$E' for e in g['edges']) else 1)" \
+    && pass "topology-fix edge: $E" || fail "missing topology-fix edge: $E"
 done
 
 # --- INVENTORY count in SKILL.md HARD GATES (V19) ---

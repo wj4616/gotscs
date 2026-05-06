@@ -74,6 +74,21 @@ for e in d['edges']:
 unconnected = [n for n in node_ids if in_degree[n] == 0 and out_degree[n] == 0]
 if unconnected:
     print(f"WARN: {len(unconnected)} unconnected node(s): {unconnected}", file=sys.stderr)
+# input_dependencies↔edge-table cross-check (I-02): every node listed in another node's
+# input_dependencies must appear as source in at least one edge targeting the dependent node.
+dep_gap = []
+edge_sources_for_target = {}
+for e in d['edges']:
+    edge_sources_for_target.setdefault(e['target'], set()).add(e['source'])
+for n in d['nodes']:
+    for dep in n.get('input_dependencies', []):
+        if dep in node_ids:  # only check graph nodes (not system sources like skill_concept_brief)
+            sources_to_n = edge_sources_for_target.get(n['id'], set())
+            if dep not in sources_to_n:
+                dep_gap.append(f"{dep}→{n['id']} (in input_dependencies but no edge)")
+if dep_gap:
+    print(f"WARN: {len(dep_gap)} input_dependency claim(s) have no corresponding edge:", file=sys.stderr)
+    for gap in dep_gap: print(f"  {gap}", file=sys.stderr)
 if expect_nodes:
     assert len(ids) == int(expect_nodes), f"node count {len(ids)} != {expect_nodes}"
 if expect_edges:

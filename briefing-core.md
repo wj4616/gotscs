@@ -2,7 +2,7 @@
 
 This file is read by all spawn subagents at the start of their protocol (HC-13 module-delegation).
 
-## Node Quickref (v4.0.0 — 19 nodes, 2 conditional, 52 edges, 10 Waves)
+## Node Quickref (v4.0.0 — 19 nodes, 2 conditional, 58 edges, 10 Waves)
 
 | Node ID | Wave | Hat | Type | Brief |
 |---------|------|-----|------|-------|

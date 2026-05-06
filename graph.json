@@ -6,7 +6,7 @@
     "determinism_class": "non-deterministic",
     "total_waves": 10,
     "total_nodes": 19,
-    "total_edges": 57,
+    "total_edges": 58,
     "topology": "full GoT + Wave-modular",
     "headline_token_budget": 81000,
     "typical_token_budget": 93000,
@@ -96,6 +96,7 @@
     {"id": "E54", "source": "N-CONTEXT-ANALYZE",   "target": "N-DECOMPOSE",       "edge_type": "optional",            "signal_field": "context_inventory",   "gate_condition": null},
     {"id": "E55", "source": "N-CONTEXT-ANALYZE",   "target": "N-CONSTRAINTS",     "edge_type": "optional",            "signal_field": "context_inventory",   "gate_condition": null},
     {"id": "E56", "source": "N-CONTEXT-ANALYZE",   "target": "N-AGG-DESIGN",      "edge_type": "optional",            "signal_field": "context_inventory",   "gate_condition": null},
-    {"id": "E57", "source": "N-JSON",              "target": "N-SKILL-RENDER",    "edge_type": "required",            "signal_field": "json_result",         "gate_condition": null}
+    {"id": "E57", "source": "N-JSON",              "target": "N-SKILL-RENDER",    "edge_type": "required",            "signal_field": "json_result",         "gate_condition": null},
+    {"id": "E58", "source": "N-PREFLIGHT",         "target": "N-CONTEXT-ANALYZE", "edge_type": "forward-conditional", "signal_field": "input_class",         "gate_condition": "input_class in ['ec-skill','ec-spec','ec-both']"}
   ]
 }

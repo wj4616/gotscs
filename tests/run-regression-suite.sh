@@ -121,6 +121,22 @@ for n in g['nodes']:
 print(json.dumps(g, indent=2))
 "
 
+# --- Mutation 11: drop N-CONTEXT-ANALYZE topology-fix edge E53 (should fail E53 presence check) ---
+run_mutation "drop-topology-fix-edge-E53" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+g['edges'] = [e for e in g['edges'] if e['id'] != 'E53']
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 12: drop N-JSON→N-SKILL-RENDER required edge E57 (should fail E57 presence check) ---
+run_mutation "drop-required-edge-E57" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+g['edges'] = [e for e in g['edges'] if e['id'] != 'E57']
+print(json.dumps(g, indent=2))
+"
+
 cp "$TMP_DIR/graph.json.original" "$SKILL_DIR/graph.json"
 
 KILL_RATE=$(echo "scale=2; $KILLED * 100 / $TOTAL" | bc)

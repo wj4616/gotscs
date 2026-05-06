@@ -1,13 +1,13 @@
 ---
 name: gotscs
-description: "Graph-of-Thought Skill-Creation Skill (GOTSCS) v4.0.0. Self-redesign of v3.1.0 driven by 8 design goals: ~27% token cost reduction (typical-mode; ~36% --skill mode), graceful degradation, optional --review-gates at Waves 5/8, true Wave-3 parallel-spawn, V-check shift-forward (smaller Wave-10 verifier), regression test suite (≥80% mutation-kill), config de-duplication, graph-as-truth strengthening (PRC1 schema validation). 19 nodes (2 conditional), 57 edges, 10 Waves. v4 keeps 19 of 19 v3.1.0 nodes; surgical refactor — no node replacements. Determinism: non-deterministic. Replacement of v3.1.0 on disk MUST gate through HC-13b safety procedure (5-brief regression battery + v3.1.0 backup)."
+description: "Graph-of-Thought Skill-Creation Skill (GOTSCS) v4.0.0. Self-redesign of v3.1.0 driven by 8 design goals: ~27% token cost reduction (typical-mode; ~36% --skill mode), graceful degradation, optional --review-gates at Waves 5/8, true Wave-3 parallel-spawn, V-check shift-forward (smaller Wave-10 verifier), regression test suite (≥80% mutation-kill), config de-duplication, graph-as-truth strengthening (PRC1 schema validation). 19 nodes (2 conditional), 58 edges, 10 Waves. v4 keeps 19 of 19 v3.1.0 nodes; surgical refactor — no node replacements. Determinism: non-deterministic. Replacement of v3.1.0 on disk MUST gate through HC-13b safety procedure (5-brief regression battery + v3.1.0 backup)."
 version: 4.1.0
 graph_file: graph.json
 hats_file: hats.json
 topology: full GoT + Wave-modular
 waves: 10
 nodes: 19
-edges: 57
+edges: 58
 determinism_class: non-deterministic
 ---
 
@@ -211,9 +211,9 @@ Read `graph.json`. Read `hats.json`. Resolve Tier → model_id via `hats.json.de
 ### 0.3 PRC1 — Pre-Run Check
 Run via Bash tool:
 ```bash
-~/.claude/skills/gotscs/scripts/validate-graph.sh --expect-nodes 19 --expect-edges 57
+~/.claude/skills/gotscs/scripts/validate-graph.sh --expect-nodes 19 --expect-edges 58
 ```
-Expected: `PRC1 PASS: 19 nodes (2 conditional), 57 edges`
+Expected: `PRC1 PASS: 19 nodes (2 conditional), 58 edges`
 
 **v4 PRC1 schema-validation extension (DD-09 / Goal-8).** After expect-nodes/expect-edges check, run:
 ```bash
@@ -803,7 +803,7 @@ To inspect:
 - Read `graph.json` directly, or
 - Run `~/.claude/skills/gotscs/scripts/validate-graph.sh --print-edges`
 
-The Edge Table contains 57 rows. Edge type breakdown: required=15, optional=6, gate-open=3, forward-conditional=19, back-edge=9, terminal=5. Closed-vocab enforcement via `graph.schema.json` (HC-03).
+The Edge Table contains 58 rows. Edge type breakdown: required=15, optional=6, gate-open=3, forward-conditional=20, back-edge=9, terminal=5. Closed-vocab enforcement via `graph.schema.json` (HC-03).
 
 ## §3 MODE MATRIX (from N-WAVES)
 
