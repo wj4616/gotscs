@@ -42,7 +42,7 @@ required_output_sections: [topology_class, wave_count_estimate, topology_digest]
 
 1. **Read inputs.** Read `stages/N-NORMALIZE.md`. Extract `latency_tolerance` and `constraint_count`. Also read `stages/N-CONTEXT-ANALYZE.md` if it exists; extract `pipeline_class` (optional input — may be absent for ec-brief inputs).
 
-1.5. **Spawn invocation note.** N-TOPOLOGY now executes as `exec_type: spawn` per DD-08. The orchestrator dispatches this node via the standard subagent spawn invocation; the subagent reads the briefing-core + briefing-appendix-topology files declared above, then proceeds with steps 2-5. retry_budget is 1; on retry the orchestrator re-spawns. See briefing-core.md § "Wave-3 spawn dispatch" for the exact prompt template.
+1.5. **Spawn invocation note.** N-TOPOLOGY now executes as `exec_type: spawn` per DD-08. The orchestrator dispatches this node via the standard subagent spawn invocation (see SKILL.md STEP 3 for the Agent() prompt template); the subagent reads briefing-core.md + briefing-appendix-topology.md declared above, then proceeds with steps 2-5. retry_budget is 1; on retry the orchestrator re-spawns.
 
 2. **Determine H.3 topology features.** Evaluate these four boolean features from the normalize_digest:
    - `fan_out_branches`: count of independent reasoning paths identified in normalize_digest (default ≥2 for any non-trivial input)

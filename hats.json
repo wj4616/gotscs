@@ -1,0 +1,62 @@
+{
+  "$schema_note": "v4 hats.json — per-hat downshift_threshold tuning per DD-08. verifier raised 0.20→0.30 (residual battery is smaller; raise threshold to block accidental small-tier picks). formatter retains downshiftable: false (was already non-downshiftable in v3.1.0; DD-08 reaffirms). All other hats unchanged at 0.20.",
+  "hats": {
+    "gate": {
+      "tier": "model-medium",
+      "downshiftable": true,
+      "fallback_tier": "model-small",
+      "downshift_threshold": 0.20,
+      "rationale": "Input validation and classification; medium reasoning needed for EC detection."
+    },
+    "extractor": {
+      "tier": "model-medium",
+      "downshiftable": true,
+      "fallback_tier": "model-small",
+      "downshift_threshold": 0.20,
+      "rationale": "Structured field extraction from text; no large-context synthesis required."
+    },
+    "analyzer": {
+      "tier": "model-medium",
+      "downshiftable": true,
+      "fallback_tier": "model-small",
+      "downshift_threshold": 0.20,
+      "rationale": "Single-axis analysis; medium reasoning sufficient per branch."
+    },
+    "aggregator": {
+      "tier": "model-large",
+      "downshiftable": true,
+      "fallback_tier": "model-medium",
+      "downshift_threshold": 0.20,
+      "rationale": "Cross-branch synthesis with contradiction resolution requires full context handling."
+    },
+    "generator": {
+      "tier": "model-large",
+      "downshiftable": true,
+      "fallback_tier": "model-medium",
+      "downshift_threshold": 0.20,
+      "rationale": "Producing complete skill artifacts (registry tables, edge tables, module files) benefits from larger context."
+    },
+    "formatter": {
+      "tier": "model-medium",
+      "downshiftable": false,
+      "rationale": "v4: hat default tier raised to model-medium because formatter now hosts N-SPEC-ARTIFACT (5-input synthesis, upshifted per DD-07). Per-node tier overrides still apply (N-JSON stays model-small). Non-downshiftable to prevent large→small drift."
+    },
+    "verifier": {
+      "tier": "model-medium",
+      "downshiftable": true,
+      "fallback_tier": "model-small",
+      "downshift_threshold": 0.30,
+      "rationale": "v4: hat default tier dropped to model-medium per DD-07 (residual V-battery is ~40% smaller than v3.1.0's full battery). Threshold raised 0.20→0.30 per DD-08 to block accidental small-tier picks on the smaller residual battery."
+    },
+    "persister": {
+      "tier": "model-small",
+      "downshiftable": false,
+      "rationale": "File write operations; mechanical, no LLM reasoning needed."
+    }
+  },
+  "default_models": {
+    "model-large":  "claude-opus-4-7",
+    "model-medium": "claude-sonnet-4-6",
+    "model-small":  "claude-haiku-4-5-20251001"
+  }
+}

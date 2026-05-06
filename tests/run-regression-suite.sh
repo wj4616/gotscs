@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+# GOTSCS v4.0.0 — regression test suite (NEW per Goal-6 / DD-10)
+# Purpose: structural mutation-kill tests on graph.json modifications.
+# Target: ≥80% kill rate on injected mutations.
+
+set -uo pipefail
+SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SMOKE="$SKILL_DIR/tests/run-smoke-tests.sh"
+TMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TMP_DIR"' EXIT
+
+echo "GOTSCS v4 regression suite — $(date)"
+echo "Target: ≥80% mutation-kill rate on graph.json"
+echo ""
+
+# --- Backup original graph.json ---
+cp "$SKILL_DIR/graph.json" "$TMP_DIR/graph.json.original"
+
+KILLED=0
+TOTAL=0
+
+run_mutation() {
+  local NAME="$1"
+  local MUTATION="$2"
+  TOTAL=$((TOTAL + 1))
+  GRAPH_SOURCE="$TMP_DIR/graph.json.original" python3 -c "$MUTATION" > "$SKILL_DIR/graph.json"
+  if bash "$SMOKE" >/dev/null 2>&1; then
+    echo "MUTATION SURVIVED (NOT KILLED): $NAME"
+  else
+    echo "MUTATION KILLED:               $NAME"
+    KILLED=$((KILLED + 1))
+  fi
+  cp "$TMP_DIR/graph.json.original" "$SKILL_DIR/graph.json"
+}
+
+# --- Mutation 1: drop a node (should fail node count check) ---
+run_mutation "drop-node-N-EMIT" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+g['nodes'] = [n for n in g['nodes'] if n['id'] != 'N-EMIT']
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 2: drop an edge (should fail edge count check) ---
+run_mutation "drop-edge-E29" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+g['edges'] = [e for e in g['edges'] if e['id'] != 'E29']
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 3: add a node beyond cap (should fail HC-02) ---
+run_mutation "add-node-21st" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+g['nodes'].append({'id': 'N-EXTRA', 'type': 'GATE', 'exec_type': 'inline', 'hat': 'gate', 'tier': 'model-small', 'wave': 1, 'scale_gates': {'token_budget': 100, 'time_budget': 10, 'spawn_budget': 0, 'retry_budget': 0}, 'input_dependencies': [], 'raises_signals': []})
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 4: corrupt edge_type with non-closed-vocab value (HC-03) ---
+run_mutation "edge-type-drift-E1" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+for e in g['edges']:
+    if e['id'] == 'E1':
+        e['edge_type'] = 'bogus-type'
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 5: corrupt hat with non-closed-vocab value (HC-04) ---
+run_mutation "hat-drift-N-EMIT" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+for n in g['nodes']:
+    if n['id'] == 'N-EMIT':
+        n['hat'] = 'bogus-hat'
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 6: drop one of the v4 new back-edges ---
+run_mutation "drop-v4-backedge-E50" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+g['edges'] = [e for e in g['edges'] if e['id'] != 'E50']
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 7: change exec_type to invalid value ---
+run_mutation "exec-type-drift-N-PREFLIGHT" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+for n in g['nodes']:
+    if n['id'] == 'N-PREFLIGHT':
+        n['exec_type'] = 'remote'
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 8: malformed JSON ---
+run_mutation "malformed-json" "
+import json
+print('not valid json{')
+"
+
+# --- Mutation 9: drop conditional flag from N-CONTEXT-ANALYZE (changes conditional count) ---
+run_mutation "drop-conditional-flag" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+for n in g['nodes']:
+    if n['id'] == 'N-CONTEXT-ANALYZE':
+        n.pop('conditional', None)
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 10: change spawn count by promoting an inline node ---
+run_mutation "spawn-count-drift" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+for n in g['nodes']:
+    if n['id'] == 'N-EMIT':
+        n['exec_type'] = 'spawn'
+print(json.dumps(g, indent=2))
+"
+
+cp "$TMP_DIR/graph.json.original" "$SKILL_DIR/graph.json"
+
+KILL_RATE=$(echo "scale=2; $KILLED * 100 / $TOTAL" | bc)
+echo ""
+echo "REGRESSION SUITE RESULT: $KILLED / $TOTAL killed ($KILL_RATE%)"
+
+# Pass at ≥80%
+THRESHOLD_PASS=$(echo "$KILL_RATE >= 80" | bc)
+if [ "$THRESHOLD_PASS" = "1" ]; then
+  echo "PASS: kill rate ≥80% (Goal-6 target met)"
+  exit 0
+else
+  echo "FAIL: kill rate <80% (Goal-6 target missed)"
+  exit 1
+fi

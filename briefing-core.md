@@ -44,7 +44,7 @@ This block is self-contained. Paste it verbatim as primary context for the downs
 ```yaml
 # Standardized per-node declaration (graph.json entry)
 id: <node_id, e.g. "N-3" or "N-AGGREGATION">
-type: <typed enum>           # DECOMPOSITION | ANALYZE | TAILOR | XREF | LATERAL |
+type: <typed enum>           # DECOMPOSITION | TAILOR | XREF | LATERAL |
                              # DEFIXATION | SIMULATION | PRECISION | ADVERSARIAL |
                              # CONJECTURE | AGGREGATION | ROUTER | SYNTHESIS |
                              # VERIFIER | ATTACKER | FORMATTER | GENERATOR |

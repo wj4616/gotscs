@@ -79,7 +79,7 @@ required_output_sections: [v_battery_results, verify_pass]
    - **V3:** At least one aggregation Node is NOT the final emit.
    - **V4:** All aggregation Nodes have decomposition trees, synthesis strategy, Join semantics, activation conditions, and branch-budget cap declared.
    - **V7:** Wave count ≤10; every Wave has declared spawn budget AND failure_grace; total spawn budget declared; at least one Wave has attention-reset.
-   - **V8:** hats.json maps every Hat to exactly one tier; every downshiftable Hat has fallback + downshift_threshold.
+   - **V8:** hats.json maps every Hat to exactly one tier; every downshiftable Hat has fallback_tier + downshift_threshold.
    - **V9:** Verbatim quote "Aggregation is the defining unlock..." appears in Section 1.5 (Aggregation Policies).
    - **V10 (residual):** Final attestation — set(node_ids) == set(filenames-without-extension). Primary check already executed by N-MODULES step 0.5; this is a confirm-only re-check on the post-emit stage outputs.
    - **V13 (residual a, b, c, e):** (a) All Nodes have 4-dimension scale gates. (b) Determinism class consistency. (c) H.7 AI-advantages floor ≥3 distinct entries. (e) Any other Section-1/2 cross-table residual sanity (note: V13(d) — graph.json node/edge ID matching — was pre-shifted to N-REGISTRY step 0.5).

@@ -14,11 +14,13 @@ SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TARGET=""
 EXPECT_NODES=""
 EXPECT_EDGES=""
+SCHEMA_VALIDATE=""
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --target)        TARGET="$2"; shift 2 ;;
-    --expect-nodes)  EXPECT_NODES="$2"; shift 2 ;;
-    --expect-edges)  EXPECT_EDGES="$2"; shift 2 ;;
+    --target)          TARGET="$2"; shift 2 ;;
+    --expect-nodes)    EXPECT_NODES="$2"; shift 2 ;;
+    --expect-edges)    EXPECT_EDGES="$2"; shift 2 ;;
+    --schema-validate) SCHEMA_VALIDATE="1"; shift ;;
     *) shift ;;
   esac
 done
@@ -43,9 +45,9 @@ if [[ ! -f "$GRAPH" ]]; then
   exit 1
 fi
 
-python3 - "$GRAPH" "$EXPECT_NODES" "$EXPECT_EDGES" <<'PYEOF'
-import json, sys
-path, expect_nodes, expect_edges = sys.argv[1], sys.argv[2], sys.argv[3]
+python3 - "$GRAPH" "$EXPECT_NODES" "$EXPECT_EDGES" "$SCHEMA_VALIDATE" <<'PYEOF'
+import json, sys, os
+path, expect_nodes, expect_edges, schema_validate = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 d = json.load(open(path))
 assert 'nodes' in d and 'edges' in d and 'metadata' in d, "missing top-level keys"
 ids = [n['id'] for n in d['nodes']]
@@ -77,4 +79,39 @@ if expect_nodes:
 if expect_edges:
     assert len(eids) == int(expect_edges), f"edge count {len(eids)} != {expect_edges}"
 print(f"PRC1 PASS: {len(ids)} nodes ({conditional_count} conditional), {len(eids)} edges")
+# --schema-validate: validate graph.json against graph.schema.json using jsonschema
+if schema_validate:
+    schema_path = os.path.join(os.path.dirname(path), 'graph.schema.json')
+    if not os.path.isfile(schema_path):
+        print(f"WARN: --schema-validate: graph.schema.json not found at {schema_path}; skipping", file=sys.stderr)
+    else:
+        try:
+            import jsonschema
+            schema = json.load(open(schema_path))
+            jsonschema.validate(instance=d, schema=schema)
+            print("SCHEMA PASS: graph.json validates against graph.schema.json")
+        except ImportError:
+            print("WARN: jsonschema package not available; falling back to manual enum checks", file=sys.stderr)
+            # Manual enum checks for closed-vocab fields
+            valid_types = {"PREFLIGHT","INGEST","ANALYZER","DECOMPOSITION","AGGREGATION","GATE","GENERATOR","PLANNER","SYNTHESIS","FORMATTER","VERIFIER","PERSISTER","TAILOR","XREF","LATERAL","DEFIXATION","SIMULATION","PRECISION","ADVERSARIAL","CONJECTURE","ROUTER","ATTACKER","EXPANSION","CLASSIFIER","META-ANALYZER","RECOVERY","FILTER","TRIAGE","ACTUATOR","IO","VALIDATOR","SCORER","REFINER"}
+            valid_exec = {"inline","spawn"}
+            valid_tiers = {"model-small","model-medium","model-large","no-llm"}
+            valid_hats = {"gate","extractor","analyzer","aggregator","generator","formatter","verifier","persister","no-llm","tailor","expander","lateral","filter","validator"}
+            valid_edges = {"required","optional","gate-open","forward-conditional","back-edge","terminal"}
+            errs = []
+            for n in d['nodes']:
+                if n['type'] not in valid_types: errs.append(f"node {n['id']}: invalid type={n['type']!r}")
+                if n['exec_type'] not in valid_exec: errs.append(f"node {n['id']}: invalid exec_type={n['exec_type']!r}")
+                if n['tier'] not in valid_tiers: errs.append(f"node {n['id']}: invalid tier={n['tier']!r}")
+                if n['hat'] not in valid_hats: errs.append(f"node {n['id']}: invalid hat={n['hat']!r}")
+            for e in d['edges']:
+                if e['edge_type'] not in valid_edges: errs.append(f"edge {e['id']}: invalid edge_type={e['edge_type']!r}")
+            if errs:
+                print(f"SCHEMA FAIL: {len(errs)} enum violation(s):", file=sys.stderr)
+                for err in errs: print(f"  {err}", file=sys.stderr)
+                sys.exit(1)
+            print("SCHEMA PASS: manual enum checks passed")
+        except jsonschema.ValidationError as e:
+            print(f"SCHEMA FAIL: {e.message}", file=sys.stderr)
+            sys.exit(1)
 PYEOF
