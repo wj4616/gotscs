@@ -131,6 +131,29 @@ After the node list is drafted but before writing the blueprint:
    - node_id | context_classification | integrated_classification | rationale (one sentence)
    - For replace-target rationales: cite the specific structural defect identified by N-TOPOLOGY or N-DECOMPOSE (AP-15).
 
+6c. **Metadata diff across input sources (G-12).** After the design_blueprint node list and wave plan are fully drafted, emit a `## metadata_diff` section comparing all input sources:
+
+```markdown
+## metadata_diff
+| field | brief value | spec value (--context-spec) | skill value (--context) | resolved | source-of-truth (IC-04) |
+|---|---|---|---|---|---|
+| total_nodes | <D-NN claim or "not in brief"> | <spec frontmatter node_count or "-"> | <skill graph.json total_nodes or "-"> | <final design_blueprint value> | <which IC-04 level won> |
+| total_edges | ... | ... | ... | ... | ... |
+| max_wave_index | ... | ... | ... | ... | ... |
+| spawn_node_count | ... | ... | ... | ... | ... |
+| max_concurrent_spawns_per_run | ... | ... | ... | ... | ... |
+| topology | ... | ... | ... | ... | ... |
+| HC-02_compliance | ... | ... | ... | ... | ... |
+```
+
+Rules:
+- Cells where `resolved` differs from `spec value` or `skill value` are flagged with ⚠️.
+- The flagged rows are the candidate REVIEW-GATE-W5 prompt (surfaced at STEP 5b when `--review-gates` is set).
+- When `--review-gates` is NOT set: write the diff to `stages/metadata-diff.md` for audit trail; pipeline continues per IC-04 precedence.
+- When all resolved values match all source values: no flags; emit "✓ no metadata conflicts detected".
+
+**This diff is always emitted when at least one of {--context, --context-spec} was given.** When only a brief is supplied (ec-brief/ec-refeed/ec-inject): emit the `metadata_diff` table with spec/skill columns as "-" and resolved as the design_blueprint values.
+
 7. **Write output** to `stages/N-AGG-DESIGN.md`. Emit signals: `design_blueprint`, `contradiction_resolutions`.
 
 ## Scale gates

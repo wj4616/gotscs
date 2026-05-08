@@ -432,6 +432,7 @@ Execute N-DESIGN-GATE as inline role-switched block. Read `stages/N-AGG-DESIGN.m
 
 **NEW v4 (DD-01 + Goal-3).** If `REVIEW_GATES` env var is set AND `gate_pass=true`:
 - Display the design_blueprint passthrough section to the user.
+- **G-12: Also display any flagged rows (⚠️) from `stages/metadata-diff.md`** (written by N-AGG-DESIGN step 6c). These rows represent unresolved conflicts between brief/spec/skill metadata values; user confirmation closes the ambiguity before Wave 6 proceeds.
 - Block until user replies "approve", "modify <text>", or "abort".
 - On "approve": continue to STEP 6.
 - On "modify <text>": fire E11 RP-01 back-edge to N-AGG-DESIGN with the modify text as remediation_payload. Treat as a normal retry (counts toward `retry_count_design`).
