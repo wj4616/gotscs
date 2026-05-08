@@ -42,7 +42,15 @@ required_output_sections: [modules_manifest, emission_format]
 
 1. **Read graph_spec** from `stages/N-SYNTH-GRAPH.md`. Extract Node Registry table (all nodes) and Aggregation Policies. Also Read briefing-core.md to load the H.1-H.9 schema vocabulary before generating any module content.
 
-2. **Capacity guard.** Count the number of nodes in the registry. If node_count > 12: split generation into two batches (Waves 1-6 nodes, then Waves 7+ nodes), writing each batch to `stages/N-MODULES-batch1.md` and `stages/N-MODULES-batch2.md`. Merge into `stages/N-MODULES.md` after both complete. This prevents token-budget overflow for large skills.
+1.7. **Brief-batch-list reconciliation against wave assignments (G-08).** When the brief supplies an explicit batch list (D-08 or equivalent, pattern: `[Bb]atch.{0,5}\d` OR `[Bb]atch-\d`):
+   1. Parse the brief-supplied batch_list → `{batch_id: [node_id, ...]}`.
+   2. For each `(batch_id, node_id)` pair: look up the node's `wave` field from the N-REGISTRY / N-SYNTH-GRAPH node table.
+   3. Compute a brief-claimed wave-range per batch: `{batch_id: (min_wave, max_wave)}` across all nodes in that batch.
+   4. If any batch's wave-range overlaps another batch's wave-range: emit `batch_wave_overlap_advisory` in the stage file (informational; non-blocking).
+   5. If a single node's brief-batch-assignment contradicts its N-REGISTRY wave by ≥2 wave-indices: HALT with `halt-on-batch-wave-mismatch` listing `{node_id, brief_batch, registry_wave, delta}`.
+   6. If the difference is ≤1 wave-index (boundary case): emit `batch_boundary_advisory: {node_id, brief_batch, registry_wave}` in the stage file; accept brief assignment; proceed.
+
+2. **Capacity guard.** Count the number of nodes in the registry. If node_count > 12: split generation into two batches. If the brief supplied an explicit batch list (and step 1.7 accepted it): honor that list. Otherwise: default split = Waves 1-6 nodes in batch 1, Waves 7+ nodes in batch 2. Write each batch to `stages/N-MODULES-batch1.md` and `stages/N-MODULES-batch2.md`. Merge into `stages/N-MODULES.md` after both complete.
 
 3. **For each node in the registry**, generate module file content using the Module file template:
    ```markdown
