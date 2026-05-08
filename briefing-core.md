@@ -113,6 +113,17 @@ sub_artifacts: [<absolute path>]         # for filesystem_type=directory artifac
 
 **Floor:** synthesized skills MUST exhibit at least 3 distinct advantages across their node set. Per-node `ai_advantages_exploited` MUST draw from this catalogue.
 
+## H.7b — Spawn-count metadata fields (G-07)
+
+graph.json `metadata` contains two distinct spawn metrics. N-JSON step 1.5(c3) computes both; N-VERIFY V8 checks both:
+
+| field | meaning | HG-07 uses |
+|---|---|---|
+| `spawn_node_count` | Total nodes with `exec_type=spawn` in graph.json | No (informational) |
+| `max_concurrent_spawns_per_run` | Maximum active-spawn count across all valid mode combinations | **Yes** — HG-07 cap (≤7 verbose/strict-verify) |
+
+Brief-claimed `static_spawns` is an advisory input only; N-JSON serializer overrides unconditionally and logs the comparison. When brief claims and computed disagree: informational `audit_log` entry only, no halt.
+
 `cites_nodes:` N-8, N-12, N-14 + role_knowledge:agent_runtime_capabilities
 
 

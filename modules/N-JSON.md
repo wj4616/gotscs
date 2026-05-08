@@ -65,17 +65,31 @@ required_output_sections: [graph_json_content, hats_json_content]
 
 (c2) **tier normalization for no-llm nodes (F-2.3 fix).** For every node with `exec_type=inline` and `hat=persister` (or any node with `type` in {`PERSISTER`, `IO`}, or `tier` ∈ {null, "n/a", "N/A", absent}): force `tier="no-llm"` BEFORE emitting. This catches the F-2.3 class where author-claimed tier `"n/a"` violates the closed-vocab `tier` enum. Log each correction as `"v16_resolution": "tier-no-llm-normalized"` on the node entry. **No-llm nodes MUST emit tier="no-llm" verbatim** — the enum admits no synonyms.
 
-(c3) **Metadata auto-compute (F-2.2 fix — Rank-1 audit finding).** After step 2 has built the `nodes` and `edges` arrays, compute and OVERRIDE these `metadata` fields unconditionally — DO NOT trust author-claimed values:
+(c3) **Metadata auto-compute (F-2.2 fix — Rank-1 audit finding; G-07 split).** After step 2 has built the `nodes` and `edges` arrays, compute and OVERRIDE these `metadata` fields unconditionally — DO NOT trust author-claimed values:
 
 ```python
 metadata["total_nodes"]    = len(nodes)
 metadata["total_edges"]    = len(edges)
-metadata["static_spawns"]  = sum(1 for n in nodes if n["exec_type"] == "spawn")
 metadata["back_edges"]     = sum(1 for e in edges if e["edge_type"] == "back-edge")
-metadata["total_waves"]    = max((n.get("wave", 0) for n in nodes), default=0)
+metadata["total_waves"]    = max((n.get("wave", 0) for n in nodes if n.get("wave") is not None), default=0)
+
+# G-07: split into two distinct spawn metrics
+metadata["spawn_node_count"] = sum(1 for n in nodes if n["exec_type"] == "spawn")
+# max_concurrent_spawns_per_run: max spawn-active count across all valid mode combinations
+# Valid modes: normal, deep, verbose, strict-verify, strict-verify-deep, strict-verify-verbose, to-spec, to-plan
+# For each mode, count spawn nodes active (exec_type=spawn AND mode_gate either absent or evaluates true).
+# Compute by iterating modes and summing active spawn nodes; take the maximum.
+# Simplified heuristic when mode gates not machine-parseable: max(spawn_node_count, explicitly_documented_max)
+metadata["max_concurrent_spawns_per_run"] = _compute_max_concurrent_spawns(nodes, modes=[
+    "normal", "deep", "verbose", "strict-verify", "strict-verify-verbose", "to-spec", "to-plan"
+])
 ```
 
-Author-claimed values for these five fields are advisory inputs only; the serializer always overwrites them with the computed values from the actual arrays. If the author-claimed and computed values disagree, log the override as `"metadata_recomputed": {"field": ..., "claimed": X, "computed": Y}` in a top-level `audit_log` array within the JSON output. This eliminates the F-2.2 drift class (graph.json metadata claims one count while array length says another).
+Implement `_compute_max_concurrent_spawns`: for each mode, spawn-active nodes = nodes where `exec_type=spawn` AND (`mode_gate` field absent OR mode appears in mode_gate). Take max over modes. If `mode_gate` fields are not present (produced skill has no mode-conditional nodes), `max_concurrent_spawns_per_run` = `spawn_node_count`.
+
+**HG-07 cap check uses `max_concurrent_spawns_per_run`** (not `spawn_node_count`). Brief-claimed `static_spawns` is compared advisory-only against both fields; differences are logged to `audit_log` but do not halt.
+
+Author-claimed values for all fields are advisory inputs only; the serializer always overwrites them with computed values. If author-claimed and computed disagree, log the override as `"metadata_recomputed": {"field": ..., "claimed": X, "computed": Y}` in a top-level `audit_log` array. This eliminates the F-2.2 drift class.
 
 **Adversarial check:** a malicious brief planting a `total_nodes` lower than `len(nodes)` to suppress audits is defeated because the override is unconditional and non-overridable.
 
