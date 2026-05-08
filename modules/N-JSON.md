@@ -134,6 +134,8 @@ The generated schema MUST be a JSON Schema draft-07 document with the union enum
 
 **Adversarial check:** a brief could attempt to declare arbitrary hat values not present in any catalogue. The undocumented-hat guard above HALTs on hats absent from both the base enum and any documented `hats.json` entry. Mitigate further by (recommended) cross-checking produced hats against `briefing-core.md` H.6 hat-vocabulary union with brief-specified extensions.
 
+1.8. **Path-conditional wave sentinel (G-14).** Before serializing, for any node where `wave` is null or absent (path-conditional nodes that have no canonical wave assignment): set `wave = "path-conditional"`. This prevents `null` values in the wave field that trip arithmetic aggregation scripts (e.g., `Wave None: 20000` in token-budget totals). The string `"path-conditional"` is excluded from `total_waves` computation in step 1.5(c3) (`max(n.get("wave") for n in nodes if isinstance(n.get("wave"), int))`).
+
 2. **Serialize graph.json.** Produce a JSON document with required top-level keys `nodes`, `edges`, `metadata`:
    ```json
    {
