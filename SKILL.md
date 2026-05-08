@@ -539,7 +539,18 @@ Output: write each module to <session_dir>/stages/modules/<node_id>.md (per-file
 Write a thin index manifest to <session_dir>/stages/N-MODULES.md (no embedded module bodies).")
 ```
 
-Execute N-JSON inline per `modules/N-JSON.md`. Write `stages/N-JSON.md`. **N-JSON must complete and its stage file must exist before N-SKILL-RENDER is dispatched (P0-4 ordering constraint).** This is a hard sequential dependency: N-SKILL-RENDER sources scale_gates values from the graph_json_content block; if N-JSON is repaired after a failed first pass, N-SKILL-RENDER must read the repaired values or it will emit a stale §1 Node Registry table (V13(e) failure).
+**N-JSON exec-type gate (G-02).** Before dispatching N-JSON, evaluate the exec_type_conditional from `modules/N-JSON.md`:
+```python
+# Read node/edge counts from stages/N-SYNTH-GRAPH.md frontmatter
+node_count = <parsed from stages/N-SYNTH-GRAPH.md>
+edge_count  = <parsed from stages/N-SYNTH-GRAPH.md>
+est_kb = node_count * 1.8 + edge_count * 0.5 + 5
+n_json_spawn = (node_count > 12 or edge_count > 20 or est_kb > 20)
+```
+- If `n_json_spawn=True`: dispatch N-JSON as a **spawn** (scale_gates: 8000 tokens, 360s, spawn_budget=1). Include `exec_type_resolved: spawn` in the Agent prompt.
+- If `n_json_spawn=False`: execute N-JSON **inline** as role-switched block (scale_gates: 3000 tokens, 300s).
+
+Execute N-JSON per `modules/N-JSON.md` (inline or spawn per gate above). Write `stages/N-JSON.md`. **N-JSON must complete and its stage file must exist before N-SKILL-RENDER is dispatched (P0-4 ordering constraint).** This is a hard sequential dependency: N-SKILL-RENDER sources scale_gates values from the graph_json_content block; if N-JSON is repaired after a failed first pass, N-SKILL-RENDER must read the repaired values or it will emit a stale §1 Node Registry table (V13(e) failure).
 
 **N-SKILL-RENDER inline (P-002).** Execute N-SKILL-RENDER as an inline role-switched block per `modules/N-SKILL-RENDER.md` **only after `stages/N-JSON.md` exists**. Do NOT run N-SKILL-RENDER concurrently with N-JSON. N-SKILL-RENDER reads 4 stage files (N-NORMALIZE, N-CONSTRAINTS, N-SYNTH-GRAPH, N-JSON) plus `briefing-core.md`. Reads 3 prior stage files (N-NORMALIZE, N-CONSTRAINTS, N-SYNTH-GRAPH) plus `briefing-core.md`. **v4 delta (DD-03):** N-SKILL-RENDER no longer embeds Appendix A briefing inline — it references `briefing-core.md` instead. This drops the N-SKILL-RENDER token budget from 16K (v3.1.0) to 10K (v4). Assembles the full SKILL.md content (§0 HARD GATES with verbatim inventory_items, §1 through §7) and writes to `stages/N-SKILL-RENDER.md`. N-EMIT (STEP 10b) consumes this file directly via `cp` — no re-rendering at emit time. This is the authoritative SKILL.md content for V11 verification.
 
