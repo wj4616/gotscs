@@ -138,6 +138,73 @@ This eliminates the F-2.6 destructive-overwrite class. The `--allow-context-over
    4. If no source content found AND HG-04 is in inventory_items: HALT with `halt-on-missing-tier1-kb-source` — list which inventory_item demanded it and what headings were searched. Do NOT silently omit the file.
    5. If HG-04 is NOT in inventory_items AND no kb-snippet pattern in brief: skip this step silently.
 
+4b. **Post-emit schema validation (G-13 — before smoke test).**
+```bash
+# 1. Validate graph.json against produced graph.schema.json
+python3 - << 'PYEOF'
+import json, sys
+try:
+    import jsonschema
+    schema = json.load(open("<skill_path>/graph.schema.json"))
+    graph  = json.load(open("<skill_path>/graph.json"))
+    jsonschema.validate(graph, schema)
+    print("G-13/1: graph.json schema validation PASS")
+except jsonschema.ValidationError as e:
+    print(f"HALT: halt-on-post-emit-schema-fail: {e.json_path} — {e.message}", file=sys.stderr)
+    sys.exit(10)
+except Exception as e:
+    print(f"HALT: halt-on-post-emit-schema-fail: {e}", file=sys.stderr)
+    sys.exit(10)
+PYEOF
+SCHEMA_RESULT=$?
+
+# 2. hats.json parseable + required fields
+python3 - << 'PYEOF'
+import json, sys
+hats = json.load(open("<skill_path>/hats.json"))
+required = ["hat_id", "tier", "downshiftable", "nodes"]
+for h in hats:
+    missing = [f for f in required if f not in h]
+    if missing:
+        print(f"HALT: halt-on-hats-missing-fields: hat {h.get('hat_id','?')} missing {missing}", file=sys.stderr)
+        sys.exit(11)
+print(f"G-13/2: hats.json {len(hats)} hats validated PASS")
+PYEOF
+HATS_RESULT=$?
+
+# 3. Every node_id in graph.json has a corresponding modules/<node_id>.md
+python3 - << 'PYEOF'
+import json, os, sys
+graph = json.load(open("<skill_path>/graph.json"))
+missing = [n["id"] for n in graph["nodes"] if not os.path.exists(f"<skill_path>/modules/{n['id']}.md")]
+if missing:
+    print(f"HALT: halt-on-post-emit-missing-modules: {missing}", file=sys.stderr)
+    sys.exit(12)
+print(f"G-13/3: all {len(graph['nodes'])} module files present PASS")
+PYEOF
+MODULES_RESULT=$?
+
+# 4. SKILL.md frontmatter nodes:/edges: match graph.json metadata
+python3 - << 'PYEOF'
+import json, re, sys
+meta = json.load(open("<skill_path>/graph.json"))["metadata"]
+skill_md = open("<skill_path>/SKILL.md").read()
+m_nodes = re.search(r"^nodes:\s*(\d+)", skill_md, re.MULTILINE)
+m_edges = re.search(r"^edges:\s*(\d+)", skill_md, re.MULTILINE)
+errs = []
+if m_nodes and int(m_nodes.group(1)) != meta["total_nodes"]:
+    errs.append(f"nodes: SKILL.md={m_nodes.group(1)} vs graph.json={meta['total_nodes']}")
+if m_edges and int(m_edges.group(1)) != meta["total_edges"]:
+    errs.append(f"edges: SKILL.md={m_edges.group(1)} vs graph.json={meta['total_edges']}")
+if errs:
+    print(f"HALT: halt-on-post-emit-metadata-mismatch: {errs}", file=sys.stderr)
+    sys.exit(13)
+print("G-13/4: SKILL.md frontmatter nodes/edges match graph.json PASS")
+PYEOF
+META_RESULT=$?
+```
+If any of the 4 sub-checks fail: HALT with `halt-on-post-emit-validation-fail` listing every failed check; preserve `stages/` for debug; set `emit_complete=false`. Do NOT proceed to the P-004 smoke test.
+
 4c. **Post-emit smoke test (P-004 — required gate).** After all files are written but before reporting `emit_complete=true`, run the produced skill's own smoke test against the post-emit artifacts:
    ```bash
    bash <skill_path>/tests/run-smoke-tests.sh
