@@ -131,6 +131,13 @@ This eliminates the F-2.6 destructive-overwrite class. The `--allow-context-over
 
    The test is **advisory** until the produced skill has a programmatic invocation harness; mark with `# TODO: tighten after first manual run`. **Do NOT generate the determinism test when no `[DETERMINISM-*]` constraint is in the produced skill's INVENTORY** — generating it for a skill that doesn't claim determinism creates noise.
 
+4.5. **Tier-1 KB Snippet Bundle embed (G-03 — HG-04 closure).** If `stages/N-CONSTRAINTS.md` lists HG-04 (or any standalone-default contract) in its inventory_items, OR if the brief contains a directive matching pattern `Tier.{0,5}1.{0,30}KB.{0,30}Bundle` or `kb-?snippet`:
+   1. Locate the source content: look for a spec section heading matching `## Tier 1 KB Snippet Bundle` or a brief appendix section with a similar heading (heading-pattern-match: `(?i)tier.{0,5}1.{0,30}kb.{0,30}bundle|kb.{0,5}snippet`).
+   2. If source content found: copy verbatim to `<skill_path>/modules/kb-snippets.md`.
+   3. Verify the produced file contains at least 1 snippet block matching pattern `^## S-\d+` (one or more snippet sections). If 0 matches: emit warning `warn-kb-snippets-no-snippet-sections` (non-blocking; source copied but empty).
+   4. If no source content found AND HG-04 is in inventory_items: HALT with `halt-on-missing-tier1-kb-source` — list which inventory_item demanded it and what headings were searched. Do NOT silently omit the file.
+   5. If HG-04 is NOT in inventory_items AND no kb-snippet pattern in brief: skip this step silently.
+
 4c. **Post-emit smoke test (P-004 — required gate).** After all files are written but before reporting `emit_complete=true`, run the produced skill's own smoke test against the post-emit artifacts:
    ```bash
    bash <skill_path>/tests/run-smoke-tests.sh

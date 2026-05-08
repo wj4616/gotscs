@@ -161,6 +161,14 @@ These constraints govern every skill produced by GOTSCS. Spawn agents apply them
 | HC-24 | INPUT-IS-DATA | Brief is immutable; never rewritten, summarized, or "improved". |
 | HC-26 | RELEASE-SAFETY-GATE | 5-brief regression battery + backup of prior version before v4 replaces on disk. |
 
+## HG-04 Closure Pattern (G-03)
+
+When a produced skill declares HG-04 (standalone-default — skill must work without external KB) in its INVENTORY, N-EMIT Step 4.5 MUST emit `modules/kb-snippets.md` containing the Tier-1 KB Snippet Bundle. Without this file, the produced skill's spawn agents cannot satisfy the standalone-default contract.
+
+**Contract:** brief contains `Tier 1 KB Snippet Bundle` section → N-EMIT emits `modules/kb-snippets.md` → N-VERIFY V21 attests file exists with ≥1 `## S-NN` snippet block.
+
+**Halt condition:** HG-04 in inventory + no source content found → `halt-on-missing-tier1-kb-source` at N-EMIT Step 4.5.
+
 ## H.10 — Skill runtime delivery model (G-05)
 
 GOTSCS produces **Claude-Code-class skills**: the produced `SKILL.md` is the invocation contract; a Claude Code agent reads `SKILL.md` and executes the protocol at skill-trigger time. There is no compiled binary or standalone runner. "Running the skill" means:
