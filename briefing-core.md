@@ -139,3 +139,60 @@ sub_artifacts: [<absolute path>]         # for filesystem_type=directory artifac
 | N-VERIFY | ALL 5 appendices (topology + contract + memory + antipatterns + vocab) |
 | N-EMIT | (briefing-core only) |
 | N-BEHAVIORAL | (briefing-core only) |
+
+## HC Quick-Reference (design constraints for produced skills)
+
+These constraints govern every skill produced by GOTSCS. Spawn agents apply them during design; N-VERIFY attests compliance in the V-battery.
+
+| HC | Name | Constraint |
+|---|---|---|
+| HC-01 | GRAPH-AS-TRUTH | graph.json is single source of topology; no duplication of node/edge definitions into SKILL.md or briefing-core.md. |
+| HC-02 | 20-NODE CAP | ≤20 nodes, ≤10 waves, ≤60 edges; fewer is fine if functionality preserved. |
+| HC-03 | CLOSED-EDGE-VOCAB | 6 runtime edge types only: required, optional, gate-open, forward-conditional, back-edge, terminal. No inventions. |
+| HC-04 | CLOSED-NODE-TYPE-VOCAB | H.1 typed enum above is canonical. No invented node types. |
+| HC-06 | V-BATTERY-COMPLETENESS | Every V1-V19 check preserved or explicitly replaced with an equivalent. |
+| HC-08 | NON-DETERMINISM | Pipeline is non-deterministic; do not attempt to force determinism. |
+| HC-09 | INPUT-CLASS-COMPLETENESS | All 6 input classes remain (ec-brief, ec-skill, ec-spec, ec-both, ec-refeed, ec-inject). |
+| HC-10 | FLAG-PRESERVATION | `--skill`, `--spec`, `--both`, `--context`, `--context-spec`, `--reuse-session`, `--behavioral-test` all preserved. |
+| HC-11 | MODE-DISAMBIGUATION | Orchestrator MUST ask user when no mode flag given. |
+| HC-12 | SESSION-OUTPUT-STRUCTURE | Per-node stage files at `~/docs/gotscs-output/` remain (audit trail + `--reuse-session`). |
+| HC-13b | MODULE-DELEGATION | Every spawn reads `briefing-core.md` at protocol start, plus declared appendices per the per-node read-map above. |
+| HC-23 | PARALLEL-DISPATCH | Parallel spawn nodes in the same wave MUST be dispatched in a single response. Enforcement: orchestrator writes `dispatch_log` entry after each parallel dispatch (SKILL.md STEP 3 / STEP 6); N-VERIFY V20 checks single-response_id per wave. Use `scripts/dispatch-parallel.sh` to append log entries. Under `--strict-dispatch`: V20 advisory promotes to HARD FAIL. |
+| HC-24 | INPUT-IS-DATA | Brief is immutable; never rewritten, summarized, or "improved". |
+| HC-26 | RELEASE-SAFETY-GATE | 5-brief regression battery + backup of prior version before v4 replaces on disk. |
+
+## Detection-pattern Operationalization Examples (F-1.2 fix — Rank-7 audit finding)
+
+When a brief contains constraints of the form **"detect <X>"** — contradictions, topic shifts, mind-changes, supersession, etc. — the brief author SHOULD include 3-5 example pairs covering true-positive, true-negative, and ambiguous cases. Without examples, downstream node protocols (e.g., `N-ANALYZER-CORRECTIONS`) inherit the brief's vagueness and ship with shallow detection algorithms.
+
+**Pattern template:**
+```yaml
+detection_constraint:
+  name: <constraint id, e.g., EDGE-MIND-CHANGE>
+  signal_class: <imperative-contradiction | vocabulary-shift | semantic-overlap | other>
+  examples:
+    - kind: true-positive
+      pair: ["<earlier turn>", "<later turn>"]
+      verdict: detect
+      rationale: <one-sentence>
+    - kind: true-negative
+      pair: ["<earlier turn>", "<later turn>"]
+      verdict: ignore
+      rationale: <one-sentence>
+    - kind: ambiguous
+      pair: ["<earlier turn>", "<later turn>"]
+      verdict: emit_conflict_signal_with_advisory
+      rationale: <one-sentence>
+```
+
+**Reference examples for common detection constraints:**
+
+| Constraint family | true-positive | true-negative | ambiguous |
+|---|---|---|---|
+| `[EDGE-MIND-CHANGE]` (imperative-phrase contradiction) | (T0: "Always build in Release") + (T7: "Never mind, build Debug") → **detect** (explicit revocation + new imperative) | (T0: "Use TypeScript") + (T7: "I prefer Python for this script") → **ignore** (preference, not directive) | (T0: "Always check inputs") + (T7: "You don't always need to check") → **conflict_signal** (no temporal-resolution evidence; retain both with advisory) |
+| `[EDGE-CORRECTIONS]` (correction-language opener) | (T0: "Use GCC") + (T2: "Actually, use Clang") → **detect** (explicit correction opener) | (T0: "Use GCC") + (T2: "Actually GCC has known bugs") → **ignore** (correction opener but reinforces, not overrides) | (T0: "Use GCC") + (T2: "Hmm, what about Clang?") → **conflict_signal** (suggestion, not directive) |
+| `[EDGE-TOPIC-SWITCH]` (vocabulary shift) | turns 1-10 about "segfault, gdb, malloc" then T11 "let's design the new auth UI" → **detect** (low overlap + explicit reorientation) | turns 1-10 about "segfault, malloc, valgrind" then T11 "and the heap allocator" → **ignore** (continuation; high overlap) | turns 1-10 about "API design" then T11 "I'm tired, can we resume tomorrow?" → **emit_advisory** (meta-turn; not a real switch but should not be lumped into prior thread) |
+
+**Brief authors:** when adding a new detection constraint, include the table above (or its equivalent) inside the brief's "Edge-Case Handling" section. Producers (the GOTSCS pipeline + downstream node protocols) treat the examples as **acceptance criteria for the implementation, not as exhaustive specification**.
+
+**Adversarial check:** an attacker could plant biased examples that bias detection toward false negatives (e.g., misclassify a true contradiction as "ignore"). Mitigation: require AT LEAST 3 examples per constraint, AT LEAST one of each kind {true-positive, true-negative, ambiguous}; the GOTSCS pipeline's N-CONSTRAINTS step 4.5 (when added) will flag any detection constraint with fewer than 3 categorized examples as `[FRAGMENT: detection-spec incomplete]` and downgrade `brief_quality_advisory` to `fragment_detected`.

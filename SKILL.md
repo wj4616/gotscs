@@ -44,7 +44,7 @@ You are the **orchestrator** for `gotscs`. You execute a 19-node (2 conditional)
 
 ABSOLUTELY CRITICAL: the following INVENTORY items are the canonical hard gates. They appear here verbatim per HC-24 INPUT-IS-DATA — V11 substring-matches each item against this section.
 
-### Hard Constraints (14 items, HC-01 through HC-23)
+### Hard Constraints (14 items: HC-01/02/03/04/06/08/09/10/11/12/23/24 + HC-13b/MODULE-DELEGATION + HC-26/RELEASE-SAFETY-GATE)
 
 1. **HC-01 GRAPH-AS-TRUTH:** graph.json is single source of topology; no duplication of node/edge definitions into SKILL.md or briefing-core.md.
 2. **HC-02 20-NODE CAP:** ≤20 nodes, ≤10 waves, ≤60 edges; fewer is fine if functionality preserved.
@@ -58,7 +58,7 @@ ABSOLUTELY CRITICAL: the following INVENTORY items are the canonical hard gates.
 10. **HC-10 FLAG-PRESERVATION:** `--skill`, `--spec`, `--both`, `--context`, `--context-spec`, `--reuse-session`, `--behavioral-test` all remain. `--review-gates` is purely additive (default off).
 11. **HC-11 MODE-DISAMBIGUATION:** orchestrator MUST ask user when no mode flag given.
 12. **HC-12 SESSION-OUTPUT-STRUCTURE:** per-node stage files at `~/docs/gotscs-output/` remain (audit trail + `--reuse-session`).
-13. **HC-13b RELEASE-SAFETY-GATE:** 5-brief regression battery + backup of v3.1.0 before v4 replaces on disk.
+13. **HC-26 RELEASE-SAFETY-GATE:** 5-brief regression battery + backup of v3.1.0 before v4 replaces on disk.
 14. **HC-23 PARALLEL-DISPATCH:** parallel spawn nodes in the same wave MUST be dispatched in a single response (single-response parallel dispatch).
 
 ### 8 Design Goals (drive every architectural decision)
@@ -99,7 +99,7 @@ ABSOLUTELY CRITICAL: the following INVENTORY items are the canonical hard gates.
 | AP-V4 | HIGH | N-VERIFY V12 + N-SKILL-RENDER (early diagram-vs-edges check) |
 | AP-V6 | HIGH | every node `## Failure modes` (uniform graceful-degradation pattern, NEW v4 cross-cutting per DD-02) |
 | AP-V8 | HIGH | N-WAVES + N-VERIFY V8 (spawn-count parity check) |
-| AP-V19 | HIGH | HC-13b safety gate (5-brief battery enforces real content delta) |
+| AP-V19 | HIGH | HC-26 safety gate (5-brief battery enforces real content delta) |
 | AP-V27 | HIGH | N-VERIFY V11 + N-SKILL-RENDER (P-002 dedicated renderer eliminates dual-source) |
 | AP-V29 | HIGH | review-gate hops are orchestrator-state, NOT graph-edges (DD-01) |
 | AP-V31 | HIGH | Wave-3 inline→spawn promotion (DD-04) makes parallelism real, not just "logical" |
@@ -258,7 +258,8 @@ SIGNAL_STATE = {
   "verify_pass": null, "verify_result": null, "emit_complete": null,
   "behavioral_result": null, "behavioral_pass": null,
   "review_gate_audit": [], "degradation_notices": [],
-  "retry_count_design": 0, "retry_count_artifact": 0, "repair_targets": []
+  "retry_count_design": 0, "retry_count_artifact": 0, "repair_targets": [],
+  "dispatch_log": []
 }
 executed_nodes = []
 ```
@@ -362,6 +363,15 @@ Input: stages/N-NORMALIZE.md (+ stages/validation-mode.md if exists)
 Output: stages/N-CONSTRAINTS.md")
 ```
 
+**Dispatch log (G-01/HC-23 enforcement):** Immediately after issuing the three Agent calls (in the same response), append to `SIGNAL_STATE["dispatch_log"]`:
+```json
+{"wave": 3, "response_id": "<current_response_id>", "spawn_ids": ["N-TOPOLOGY", "N-DECOMPOSE", "N-CONSTRAINTS"]}
+```
+Use a consistent `response_id` value (e.g., `"wave3-dispatch"`) to mark that all three came from one response. Sync to disk:
+```bash
+~/.claude/skills/gotscs/scripts/sync-signal.sh "$SESSION_DIR" dispatch_log="$(python3 -c "import json,sys; ss=json.load(open(sys.argv[1])); print(json.dumps(ss.get('dispatch_log',[])+[{\"wave\":3,\"response_id\":\"wave3-dispatch\",\"spawn_ids\":[\"N-TOPOLOGY\",\"N-DECOMPOSE\",\"N-CONSTRAINTS\"]}]))" "$SESSION_DIR/SIGNAL_STATE.json")"
+```
+
 Record all three in `executed_nodes`.
 
 **Wave 3 barrier:** All three stage files must exist. Sync via P-005 helper:
@@ -445,6 +455,11 @@ Agent(description="GOTSCS N-EDGES: generate Edge Table from design_blueprint",
 Read briefing-core.md and briefing-appendix-contract.md first (HC-13b).
 Input: <session_dir>/stages/N-DESIGN-GATE.md (passthrough section contains design_blueprint)
 Output: <session_dir>/stages/N-EDGES.md")
+```
+
+**Dispatch log (G-01/HC-23 enforcement):** After dispatching N-REGISTRY + N-EDGES in the same response, append to dispatch_log:
+```json
+{"wave": 6, "response_id": "wave6-dispatch", "spawn_ids": ["N-REGISTRY", "N-EDGES"]}
 ```
 
 **Wave 6 barrier:** All three stage files must exist. Record in `executed_nodes`. Sync Wave 6 signals to disk via P-005 helper:
@@ -559,7 +574,7 @@ Output: <session_dir>/stages/N-VERIFY.md")
   - If `repair_targets == ['V11']` (V11 only): fire **E41 only** (N-VERIFY→N-SKILL-RENDER) — re-render SKILL.md so the INVENTORY items are correctly embedded.
   - Else if `'V12' in repair_targets` (with or without others): fire E27 (N-VERIFY→N-MODULES) AND E28 (N-VERIFY→N-JSON); also fire E41 if `'V11' in repair_targets`.
   - Else (general module/registry failures, no V11/V12): fire E27 (N-VERIFY→N-MODULES) only.
-  - **v4 NEW (DD-06):** If `'registry_v13d_fail' in repair_targets`: fire E50 (N-VERIFY→N-AGG-DESIGN). If `'edges_early_v_fail' in repair_targets`: fire E51 (N-VERIFY→N-AGG-DESIGN). If `'modules_v6_fail' in repair_targets`: fire E52 (N-VERIFY→N-MODULES).
+  - **v4 NEW (DD-06):** If `'registry_v13d_fail' in repair_targets`: fire E50 (N-VERIFY→N-AGG-DESIGN). If `'edges_early_v_fail' in repair_targets`: fire E51 (N-VERIFY→N-AGG-DESIGN). **De-dup rule (F004):** if BOTH `'registry_v13d_fail'` AND `'edges_early_v_fail'` are in repair_targets simultaneously, fire **only E50** — merge both repair notes into the E50 payload and skip E51 to prevent double N-AGG-DESIGN dispatch in the same retry cycle. If `'modules_v6_fail' in repair_targets`: fire E52 (N-VERIFY→N-MODULES).
   Re-run N-VERIFY after re-execution of dispatched targets. Increment `retry_count_artifact`. **Sync to disk:** write updated `retry_count_artifact` and `repair_targets` back to `$SESSION_DIR/SIGNAL_STATE.json` immediately after incrementing.
 - If `verify_pass=false` AND `retry_count_artifact >= 1`: emit partial skill with advisory "Verification failed after 1 repair attempt. Review stages/N-VERIFY.md for details."
 - If `verify_pass=true`: proceed to N-EMIT.

@@ -92,6 +92,11 @@ required_output_sections: [v_battery_results, verify_pass]
    - **V18 (Zero-silent-drop on conflict_signals):** Every `conflict_signal` from Wave-3 validation branches has an explicit confirm/modify/override resolution in Design Decisions section. **No conflict_signal may be silently dropped.** Required-when-precondition-holds.
    - **V19 (residual):** When `--context` given: every node in graph.json has `context_source` in {preserved, upgraded, replaced, new} and `context_rationale`. Note: primary generation occurs in N-CONTEXT-ANALYZE step 1.5; this check is the final completeness attestation only.
 
+2.5. **V20 (dispatch-granularity — G-01).** Read `SIGNAL_STATE["dispatch_log"]` from `$SESSION_DIR/SIGNAL_STATE.json`. For each wave with `parallel_dispatch_required: true` (Wave 3: spawns N-TOPOLOGY/N-DECOMPOSE/N-CONSTRAINTS; Wave 6: spawns N-REGISTRY/N-EDGES), check that all spawn_ids for that wave appear under a single `response_id` entry in dispatch_log.
+   - If dispatch_log is empty or missing the wave entry: emit advisory `"V20-advisory: dispatch_log not populated for wave <W> — HC-23 compliance unverifiable"`. Non-blocking.
+   - If a wave's spawns are spread across multiple response_id entries: emit advisory `"V20-advisory: HC-23 violation at Wave <W> — spawns dispatched across <N> responses instead of 1"`. Under `--strict-dispatch` flag: promote to HARD FAIL and add `'V20'` to repair_targets with `halt-on-hc23-dispatch-violation`.
+   - If a wave's spawns are all under one response_id: emit `"V20: Wave <W> dispatch-granularity PASS"`.
+
 3. **Run H.4 four-check contract:**
    ```yaml
    checks:
@@ -105,6 +110,11 @@ required_output_sections: [v_battery_results, verify_pass]
    ```
 
 4. **Determine verify_pass.** Set `verify_pass=true` if: V1, V3, V4, V5-ext, V7, V8, V9, V10, V11, V13(a,b,c,e) all PASS AND H.4 overall = PASS AND V14, V15, V16 all PASS. V2 remains advisory (non-blocking). V11 is BLOCKING per P-003. V5-ext is BLOCKING (disconnected INGEST topology). V17/V18 required when validation_mode was true. V19 required when --context was given. When `verify_pass=false` AND `'V11' in repair_targets` AND `retry_count_artifact < 1`: back-edge E41 (N-VERIFY→N-SKILL-RENDER) fires in addition to E27 — N-SKILL-RENDER re-renders SKILL.md before N-MODULES re-runs.
+
+**E50/E51 routing (v4 DD-06):** These back-edges route to N-AGG-DESIGN for design-level failures caught during N-VERIFY's attestation of upstream stage files:
+- If V13(d) anomalies are detected in `stages/N-REGISTRY.md` (node/edge ID mismatch that N-REGISTRY step 0.5 should have caught): add `'registry_v13d_fail'` to repair_targets → triggers E50 (N-VERIFY→N-AGG-DESIGN).
+- If early-V edge failures are detected in `stages/N-EDGES.md` (V5/V12 issues that N-EDGES step 2.5 should have caught): add `'edges_early_v_fail'` to repair_targets → triggers E51 (N-VERIFY→N-AGG-DESIGN).
+- **De-dup rule:** if BOTH `'registry_v13d_fail'` AND `'edges_early_v_fail'` are in repair_targets simultaneously, fire **only E50** — include both repair notes in the E50 payload, skip E51 to prevent double N-AGG-DESIGN dispatch in the same retry cycle.
 
 5. **Write output** to `stages/N-VERIFY.md`:
    ```
