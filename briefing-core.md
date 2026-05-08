@@ -161,6 +161,22 @@ These constraints govern every skill produced by GOTSCS. Spawn agents apply them
 | HC-24 | INPUT-IS-DATA | Brief is immutable; never rewritten, summarized, or "improved". |
 | HC-26 | RELEASE-SAFETY-GATE | 5-brief regression battery + backup of prior version before v4 replaces on disk. |
 
+## IC-04 — Source-precedence hierarchy (G-06)
+
+When the same design element is described differently by multiple sources, apply this precedence (highest → lowest):
+
+1. **Brief audit-fix directives (D-NN with override semantics)** — any directive whose text contains "override", "auto-compute", "unconditionally", or matches pattern `audit.{0,10}fix.{0,10}override`. These supersede all other sources.
+2. **Spec content** (when `--context-spec <path>` supplied).
+3. **Skill content** (when `--context <path>` supplied).
+4. **Brief non-override content** (general brief text, not tagged as override).
+5. **GOTSCS defaults** — lowest priority.
+
+**Conflict at same level:** if two sources at the same precedence level disagree, HALT and surface to REVIEW-GATE-W5 (or the next available gate). Do not silently choose.
+
+**Override blacklist:** the following design elements CANNOT be overridden by any brief directive regardless of override tagging — they are safety-critical protocol invariants: HC-01 through HC-26, HG-01, HG-05, AP-V19, AP-V27. N-CONSTRAINTS Step 4 enforces the blacklist. Attempts to override blacklisted elements HALT with `halt-on-protected-override`.
+
+**Nodes that apply IC-04:** N-NORMALIZE step 1.5 (ec-both conflict resolution), N-CONTEXT-ANALYZE step 2.b (ec-both branch), N-CONSTRAINTS step 4 (override blacklist guard).
+
 ## HG-04 Closure Pattern (G-03)
 
 When a produced skill declares HG-04 (standalone-default — skill must work without external KB) in its INVENTORY, N-EMIT Step 4.5 MUST emit `modules/kb-snippets.md` containing the Tier-1 KB Snippet Bundle. Without this file, the produced skill's spawn agents cannot satisfy the standalone-default contract.

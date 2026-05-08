@@ -18,7 +18,7 @@ output_ports:
     format: markdown
     signal_field: normalize_digest
 raises_signals: [normalize_digest]
-required_output_sections: [domain, input_shape, output_shape, success_criteria, latency_tolerance, constraints, normalize_digest]
+required_output_sections: [domain, input_shape, output_shape, success_criteria, latency_tolerance, constraints, normalize_digest, brief_quality_advisory]
 ---
 
 ## INPUT ports
@@ -42,7 +42,7 @@ required_output_sections: [domain, input_shape, output_shape, success_criteria, 
 1.5. **Context brief substitution (ec-skill / ec-spec / ec-both).** When `--context` or `--context-spec` flags are present, the user's invocation string is a pipeline command, NOT the skill concept itself. The actual concept brief lives in the referenced skill or spec.
    - If `input_class='ec-skill'`: read `$CONTEXT_PATH/SKILL.md` (the orchestrator exports `CONTEXT_PATH` as an env var at STEP 0.1). If `SKILL.md` does not exist, fall back to `$CONTEXT_PATH/README.md`. Use this file's content as the **primary concept brief** for step 4 field extraction.
    - If `input_class='ec-spec'`: read `$CONTEXT_SPEC_PATH` as the primary concept brief.
-   - If `input_class='ec-both'`: read both. When they conflict on the same design element, **spec content takes precedence** per IC-04.
+   - If `input_class='ec-both'`: read both. When they conflict on the same design element, apply the **IC-04 source-precedence hierarchy** (see briefing-core.md IC-04 section): (1) brief audit-fix D-NN override directives > (2) spec content > (3) skill content > (4) brief non-override text > (5) GOTSCS defaults. If two sources at the same IC-04 level disagree: flag for REVIEW-GATE-W5 surface; do not silently resolve.
    - For all three classes: the original invocation string (from `skill_concept_brief.txt`) is demoted to a secondary note — it supplies pipeline constraints (mode flags, behavioral-test, review-gates) but is **NOT** the source for domain, input_shape, output_shape, or success_criteria extraction.
 
 2. **ec-refeed handling.** If `input_class='ec-refeed'`: strip YAML frontmatter (`---` block) and all `## Section N —` heading lines. Treat remaining text as the concept brief. Note original node names in the `constraints` field — they MUST be preserved verbatim in the output skill.
@@ -59,6 +59,18 @@ required_output_sections: [domain, input_shape, output_shape, success_criteria, 
    - **latency_tolerance**: MINIMAL / STANDARD / DEEP. Look for time hints ("quick", "fast" → MINIMAL; "thorough", "exhaustive" → DEEP; default STANDARD).
    - **constraints**: enumerated list of all explicit constraints, named entities, tone markers, URIs, and success criteria stated verbatim. Each becomes an INVENTORY item per EC3 rules.
 
+4.5. **Fragment quality check (F-1 fix).** After extracting all constraint candidates in step 4:
+
+   **(a) Read `stages/N-PREFLIGHT.md` for `brief_fragment_advisory`.** If `brief_fragment_advisory: true` was set by N-PREFLIGHT (F-6 step 3c): for each constraint candidate that was inferred from a syntactically incomplete phrase, append `[INFERRED from fragment]` to its text in the constraints list. Example: `[EDGE-MIND-CHANGE] User changes mind about earlier instructions — update compressed context accordingly [INFERRED from fragment: source phrase was incomplete]`.
+
+   **(b) Self-check: scan extracted constraints for completeness.** For any constraint whose source in the brief appears to be a fragment (no clear verb; truncated mid-phrase; bare adjective with no referent), annotate it `[FRAGMENT: intent inferred]` in the constraints list even if N-PREFLIGHT did not flag it.
+
+   **(c) Set `brief_quality_advisory`:**
+   - `fragment_detected` — if step 4.5a or 4.5b found fragments.
+   - `adequate` — otherwise.
+
+   This field propagates to N-CONSTRAINTS (treat `[FRAGMENT: intent inferred]` items with elevated uncertainty; prefer conservative design decisions) and to N-SPEC-ARTIFACT (F-4 reads it for the Calibration Points subsection).
+
 5. **Derive normalize_digest.** Write a 5–10 line structured digest:
    ```
    domain: <extracted>
@@ -68,6 +80,7 @@ required_output_sections: [domain, input_shape, output_shape, success_criteria, 
    latency_tolerance: <MINIMAL|STANDARD|DEEP>
    constraint_count: <N>
    input_class: <from preflight>
+   brief_quality_advisory: <fragment_detected | adequate>
    ```
 
 6. **Write output** to `stages/N-NORMALIZE.md`. Emit signal: `normalize_digest`.

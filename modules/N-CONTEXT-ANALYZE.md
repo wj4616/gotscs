@@ -88,7 +88,7 @@ required_output_sections: [context_inventory, classification_table, validation_m
 
    **For ec-both (both flags):**
    a. Run both branches above.
-   b. When spec content and skill content conflict on the same design element, **spec content takes precedence** (IC-04).
+   b. When spec content and skill content conflict on the same design element, apply the **IC-04 source-precedence hierarchy** (briefing-core.md §IC-04): brief audit-fix D-NN override directives (level 1) > spec content (level 2) > skill content (level 3) > brief general text (level 4) > GOTSCS defaults (level 5). If two sources at the same level disagree: flag for REVIEW-GATE-W5; do not silently resolve.
    c. Write `stages/validation-mode.md`.
    d. Emit unified `context_inventory`.
 

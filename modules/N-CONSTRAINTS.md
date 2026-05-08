@@ -14,7 +14,8 @@ output_ports:
   - port: constraints_result
     format: markdown
     signal_field: constraints_digest
-raises_signals: [constraints_digest, conflict_signals]
+raises_signals: [constraints_digest]
+raises_signals_conditional: [conflict_signals]  # emitted only when validation_mode=true (ec-spec/ec-both)
 required_output_sections: [inventory_items, anti_patterns_guarded, ai_advantages_selected, constraints_digest]
 ---
 
@@ -51,6 +52,8 @@ required_output_sections: [inventory_items, anti_patterns_guarded, ai_advantages
    - Is this pattern a risk given the target skill's domain and structure?
    - If yes: note which Node or Edge should guard against it.
    Minimum coverage: always flag AP-T1 (documentary-only metadata), AP-V4 (diagram-edge drift), AP-V27 (source-of-truth contradiction).
+
+3.5. **IC-04 override blacklist guard (G-06).** Scan all D-NN brief directives for any that target the following blacklisted elements: HC-01 through HC-26, HG-01, HG-05, AP-V19, AP-V27. A D-NN directive "targets" a blacklisted element if it contains the HC/HG/AP identifier AND any of {override, unconditionally, replace, remove, disable, bypass, skip}. For each match: HALT with `halt-on-protected-override` listing: (a) the D-NN directive text, (b) the blacklisted element it targets, (c) why that element is protected. Do NOT proceed to step 4 if any override-blacklist violation is found.
 
 4. **Select H.7 AI-advantage catalogue entries.** From the 7 entries:
    1. parallel_artifact_processing
