@@ -161,6 +161,21 @@ These constraints govern every skill produced by GOTSCS. Spawn agents apply them
 | HC-24 | INPUT-IS-DATA | Brief is immutable; never rewritten, summarized, or "improved". |
 | HC-26 | RELEASE-SAFETY-GATE | 5-brief regression battery + backup of prior version before v4 replaces on disk. |
 
+## H.10 — Skill runtime delivery model (G-05)
+
+GOTSCS produces **Claude-Code-class skills**: the produced `SKILL.md` is the invocation contract; a Claude Code agent reads `SKILL.md` and executes the protocol at skill-trigger time. There is no compiled binary or standalone runner. "Running the skill" means:
+
+```
+# In Claude Code — invoke via Skill tool or slash command
+/skill-name <arguments>
+```
+
+Scripts included in the produced `scripts/` directory (bash, python) are runnable by Claude Code's `Bash` tool and serve as utility helpers (e.g., `validate-graph.sh`, `sync-signal.sh`). They are **not** the primary invocation harness.
+
+**Smoke tests:** `tests/run-smoke-tests.sh` uses a stub `invoke_skill()` function that returns canned strings (offline structural checks only). It cannot test real skill behavior. A `tests/HARNESS-NOTE.md` file (emitted by N-EMIT Step 6.5) explains this limitation and the path to real invocation.
+
+**For integrators:** to test produced-skill behavior end-to-end, invoke it through Claude Code's Skill tool with a representative user prompt, then inspect the output against the V-battery criteria. Stub-based smoke tests validate structure; real invocation validates behavior.
+
 ## Detection-pattern Operationalization Examples (F-1.2 fix — Rank-7 audit finding)
 
 When a brief contains constraints of the form **"detect <X>"** — contradictions, topic shifts, mind-changes, supersession, etc. — the brief author SHOULD include 3-5 example pairs covering true-positive, true-negative, and ambiguous cases. Without examples, downstream node protocols (e.g., `N-ANALYZER-CORRECTIONS`) inherit the brief's vagueness and ship with shallow detection algorithms.
