@@ -55,6 +55,25 @@ required_output_sections: [wave_plan_table, mode_matrix_table]
    - STANDARD: All Waves; no downshifts.
    - DEEP: All Waves; static spawn budget = same as STANDARD (from graph.json). **Do NOT label the DEEP spawn budget as `N × 1.5` of the STANDARD value.** The 1.5× figure is a maximum theoretical ceiling only: BE-1 back-edge re-fires (at cap=2) may trigger up to `floor(spawn_nodes × 0.5)` additional sub-spawns at runtime, but these are not part of the static graph spawn budget. The Mode Matrix MUST show the static graph spawn budget (matches graph.json metadata) with a footnote: `"+ up to N BE-1 re-fires possible at runtime (cap ×2 in --deep mode)"`. Conflating static and dynamic spawn counts creates §3/§4 coherence failures.
 
+3.5. **Per-mode token-budget totals (G-09 — computed, not hand-estimated).**
+
+For each mode in {MINIMAL, STANDARD, DEEP, VERBOSE, STRICT-VERIFY, STRICT-VERIFY-VERBOSE, to-spec, to-plan}:
+1. From the Mode Matrix (step 3), determine `active_waves` for the mode.
+2. For each active wave: sum `token_budget` across nodes in that wave. For nodes with `exec_type_conditional` (inline→spawn promotion), use the budget value matching the mode (inline budget for MINIMAL/STANDARD small-skill paths; spawn budget when the gate condition holds).
+3. Sum wave budgets → `<mode>_total_tokens` (authoritative).
+4. Emit in the stage file as:
+   ```
+   ## per_mode_token_budget_totals
+   | mode | total_tokens | source |
+   |---|---|---|
+   | MINIMAL | <N> | computed from active waves × node scale_gates |
+   | STANDARD | <N> | computed |
+   | ... | ... | ... |
+   ```
+5. If the computed total for any mode differs from a hand-narrative estimate by >10%: halt with `halt-on-token-budget-arithmetic-drift` listing the mode, estimated value, and computed value.
+
+These totals are AUTHORITATIVE. N-VERIFY V22 checks them against graph.json metadata (when present). Any narrative "~25K tokens" text in the stage must match the computed row.
+
 4. **Wave count guard (EC8).** If total Waves > 10: apply EC8 pruning per design_blueprint pruning list. Document each pruning step.
 
 5. **Write output** to `stages/N-WAVES.md`. Emit signal: `waves_result`.
