@@ -148,6 +148,16 @@ Parse the invocation for `--spec`, `--skill`, and `--both` flags (case-insensiti
 
 Store `MODE` as a local variable. **Export `REVIEW_GATES` env var** if `--review-gates` was passed (NEW v4).
 
+**`--strict-procedural` flag (G-10 — NEW v4.1; default off).** Parse `--strict-procedural` from the invocation flags. If present: export `STRICT_PROCEDURAL=true`. When active, the following advisory classes are promoted to HARD FAIL (pipeline halts at wave barrier with `halt-on-strict-procedural-violation`):
+- HC-23 single-response parallel-dispatch violations (V20 fires as HARD FAIL, not advisory)
+- exec_type-declaration deviations (inline declared, dispatched as spawn or vice-versa), except when exec_type_conditional gate correctly promoted the exec_type
+- V8a/V8b spawn-count metadata claimed-vs-computed mismatch above a delta tolerance of 0
+- Wave dispatch-count mismatch (wave declared N spawns; orchestrator dispatched M ≠ N)
+
+**Default off** — this preserves the v3.1.0→v4.0 graceful-degradation contract for normal runs. Enable for high-stakes runs where protocol precision matters more than graceful continuation. N-VERIFY reads `STRICT_PROCEDURAL` env var to determine whether to promote these advisories to HARD FAIL.
+
+**`--strict-dispatch` flag (G-01 companion; default off).** Promotes V20 HC-23 dispatch-granularity advisory to HARD FAIL when set. Subsumed by `--strict-procedural` when both are present.
+
 ---
 
 ## STEP 0 — INIT + PRC1

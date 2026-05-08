@@ -117,6 +117,14 @@ required_output_sections: [v_battery_results, verify_pass]
    route: assembly | revise | discarded
    ```
 
+3.8. **--strict-procedural promotion (G-10).** Read `STRICT_PROCEDURAL` env var (or `stages/SIGNAL_STATE.json`).
+- If `STRICT_PROCEDURAL=true`:
+  - **V20 advisories** (HC-23 dispatch violations): promote to HARD FAIL → add `'V20-strict'` to repair_targets; set verify_pass=false; halt with `halt-on-strict-procedural-violation: HC-23`.
+  - **exec_type deviation advisories** (dispatched as spawn when declared inline, or vice versa, WITHOUT exec_type_conditional gate): promote to HARD FAIL → halt with `halt-on-strict-procedural-violation: exec_type-deviation`.
+  - **V8a mismatch** (spawn_node_count claimed ≠ computed, any delta): promote to HARD FAIL → halt with `halt-on-strict-procedural-violation: V8a-mismatch`.
+  - **V8b violation** (max_concurrent_spawns_per_run > HG-07 cap): already HARD in default mode; log for strict audit trail.
+- If `STRICT_PROCEDURAL` is unset or false: above classes remain as advisories (current graceful-degradation behavior per DD-02).
+
 4. **Determine verify_pass.** Set `verify_pass=true` if: V1, V3, V4, V5-ext, V7, V8, V9, V10, V11, V13(a,b,c,e) all PASS AND H.4 overall = PASS AND V14, V15, V16 all PASS. V2 remains advisory (non-blocking). V11 is BLOCKING per P-003. V5-ext is BLOCKING (disconnected INGEST topology). V17/V18 required when validation_mode was true. V19 required when --context was given. When `verify_pass=false` AND `'V11' in repair_targets` AND `retry_count_artifact < 1`: back-edge E41 (N-VERIFY→N-SKILL-RENDER) fires in addition to E27 — N-SKILL-RENDER re-renders SKILL.md before N-MODULES re-runs.
 
 **E50/E51 routing (v4 DD-06):** These back-edges route to N-AGG-DESIGN for design-level failures caught during N-VERIFY's attestation of upstream stage files:
