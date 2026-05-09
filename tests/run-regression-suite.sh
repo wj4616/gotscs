@@ -153,6 +153,15 @@ g['metadata']['total_edges'] = len(g['edges'])
 print(json.dumps(g, indent=2))
 "
 
+# --- Mutation 14: drop v4.1.0 back-edge E59 (N-EMIT→N-JSON schema-fail repair) ---
+run_mutation "drop-v4-backedge-E59" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+g['edges'] = [e for e in g['edges'] if e['id'] != 'E59']
+g['metadata']['total_edges'] = len(g['edges'])
+print(json.dumps(g, indent=2))
+"
+
 cp "$TMP_DIR/graph.json.original" "$SKILL_DIR/graph.json"
 
 KILL_RATE=$(echo "scale=2; $KILLED * 100 / $TOTAL" | bc)

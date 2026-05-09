@@ -70,6 +70,30 @@ for E in E53 E54 E55 E56 E57 E58; do
     && pass "topology-fix edge: $E" || fail "missing topology-fix edge: $E"
 done
 
+# --- §2 edge breakdown parity (SKILL.md §2 vs graph.json actuals) ---
+EDGE_BREAKDOWN_CHECK=$(python3 -c "
+import json, re
+g = json.load(open('$SKILL_DIR/graph.json'))
+counts = {}
+for e in g['edges']:
+    t = e['edge_type']
+    counts[t] = counts.get(t, 0) + 1
+with open('$SKILL_DIR/SKILL.md') as f:
+    text = f.read()
+m = re.search(r'Edge type breakdown: (.+?)\.', text)
+if not m:
+    print('MISSING-BREAKDOWN-LINE')
+else:
+    claimed = {}
+    for part in m.group(1).split(','):
+        k, v = part.strip().split('=')
+        claimed[k.strip()] = int(v.strip())
+    mismatches = [f'{k}: claimed={expected}, actual={counts.get(k,0)}' for k, expected in claimed.items() if counts.get(k,0) != expected]
+    mismatches += [f'{k}: in graph.json but not in §2' for k in counts if k not in claimed]
+    print(','.join(mismatches) if mismatches else 'MATCH')
+" 2>/dev/null || echo "CHECK-ERROR")
+[ "$EDGE_BREAKDOWN_CHECK" = "MATCH" ] && pass "§2 edge breakdown matches graph.json" || fail "§2 edge breakdown drift: $EDGE_BREAKDOWN_CHECK"
+
 # --- INVENTORY count in SKILL.md HARD GATES (V19) ---
 HARD_HC_COUNT=$(grep -cE '^\s*[0-9]+\.\s+\*\*HC-' "$SKILL_DIR/SKILL.md" || true)
 [ "$HARD_HC_COUNT" -ge 13 ] && pass "HARD GATES contains ≥13 HC items ($HARD_HC_COUNT)" || fail "HARD GATES has $HARD_HC_COUNT HC items, expected ≥13"
