@@ -1,6 +1,6 @@
 ---
 name: gotscs
-description: "Graph-of-Thought Skill-Creation Skill (GOTSCS) v4.1.0. Self-redesign of v3.1.0 driven by 8 design goals: ~27% token cost reduction (typical-mode; ~36% --skill mode), graceful degradation, optional --review-gates at Waves 5/8, true Wave-3 parallel-spawn, V-check shift-forward (smaller Wave-10 verifier), regression test suite (≥80% mutation-kill), config de-duplication, graph-as-truth strengthening (PRC1 schema validation). 19 nodes (2 conditional), 58 edges, 10 Waves. v4 keeps 19 of 19 v3.1.0 nodes; surgical refactor — no node replacements. Determinism: non-deterministic. Replacement of v3.1.0 on disk MUST gate through HC-13b safety procedure (5-brief regression battery + v3.1.0 backup)."
+description: "Graph-of-Thought Skill-Creation Skill (GOTSCS) v4.1.0. Self-redesign of v3.1.0 driven by 8 design goals: ~27% token cost reduction (typical-mode; ~36% --skill mode), graceful degradation, optional --review-gates at Waves 5/8, true Wave-3 parallel-spawn, V-check shift-forward (smaller Wave-10 verifier), regression test suite (≥80% mutation-kill), config de-duplication, graph-as-truth strengthening (PRC1 schema validation). 19 nodes (2 conditional), 59 edges, 10 Waves. v4 keeps 19 of 19 v3.1.0 nodes; surgical refactor — no node replacements. Determinism: non-deterministic. Replacement of v3.1.0 on disk MUST gate through HC-13b safety procedure (5-brief regression battery + v3.1.0 backup)."
 version: 4.1.0
 graph_file: graph.json
 hats_file: hats.json
@@ -223,7 +223,7 @@ Run via Bash tool:
 ```bash
 ~/.claude/skills/gotscs/scripts/validate-graph.sh --expect-nodes 19 --expect-edges 58
 ```
-Expected: `PRC1 PASS: 19 nodes (2 conditional), 58 edges`
+Expected: `PRC1 PASS: 19 nodes (2 conditional), 59 edges`
 
 **v4 PRC1 schema-validation extension (DD-09 / Goal-8).** After expect-nodes/expect-edges check, run:
 ```bash
