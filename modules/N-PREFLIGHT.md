@@ -73,6 +73,15 @@ required_output_sections: [input_class, preflight_status]
    Remove directive patterns and re-submit with a clean skill concept description.
    ```
 
+3c. **Brief fragment advisory scan (F-6 fix — non-blocking).** Scan the brief for potential grammatical fragments that may indicate incomplete constraint phrases. Apply heuristics:
+   - Past participle or bare adjective as a list item with no clear noun referent: `\b(and|or)\b\s+\w+ed\b\s+(when|where|if|as)` — matches "and [past-participle] when/where..." patterns where the clause after the conjunction lacks subject-verb structure.
+   - Coordinating conjunction at the end of a list item followed by a clause that has no main verb (e.g., "handle X, Y, and buried when a user...").
+
+   If either heuristic matches: set `brief_fragment_advisory: true` in the `## notes` output section. This advisory is read by N-NORMALIZE (step 4.5) and propagates to N-SPEC-ARTIFACT for the Calibration Points subsection. NON-BLOCKING — `preflight_status` remains `pass`.
+
+   If triggered, include in `## notes`:
+   > FRAGMENT ADVISORY: Possible incomplete constraint phrase detected in the brief. The corresponding INVENTORY item will be inferred by N-NORMALIZE and annotated `[INFERRED from fragment]`. Verify the constraint against the brief's intent before implementation.
+
 4. **Input class detection (v2 6-class taxonomy).** Classify input as one of:
    - `ec-inject`: input matches HG4 directive-injection patterns (already refused at step 3b)
    - `ec-skill`: `--context <skill-dir>` supplied (CONTEXT_PATH env var is set)
@@ -101,8 +110,11 @@ required_output_sections: [input_class, preflight_status]
    ## brief_length_advisory
    <short_brief | adequate>  (omit this field if adequate)
 
+   ## brief_fragment_advisory
+   <true>  (omit this field if no fragment detected — F-6)
+
    ## notes
-   <any relevant observations about the input, including short-brief advisory if triggered>
+   <any relevant observations about the input, including short-brief advisory and fragment advisory if triggered>
    ```
    Set signal: `preflight_status=pass`, `input_class=<class>`.
 
@@ -114,12 +126,14 @@ required_output_sections: [input_class, preflight_status]
 
 ## Failure modes
 - timeout: emit preflight_status=refuse with advisory "PREFLIGHT timed out"
-- malformed output: re-run step 5 only
+- malformed output: emit preflight_status=refuse with advisory (no retry — retry_budget=0)
 - missing input: emit preflight_status=refuse with EC13 message
 - format-mismatch on Edge: N/A (inline, no upstream edge mismatch possible)
 
 ## Graceful Degradation
-After retry exhaustion, emit a degraded output with the following frontmatter prefix:
+N-PREFLIGHT has retry_budget=0. No retry path exists. On failure, emit preflight_status=refuse with the applicable refusal message format above. The degradation_notice schema below is provided for reference if the orchestrator surfaces a degraded preflight signal from a downstream remediation path:
+
+After any failure, emit a degraded output with the following frontmatter prefix:
 ```yaml
 degradation_notice:
   node_id: N-PREFLIGHT

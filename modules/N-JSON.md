@@ -126,13 +126,14 @@ for h in produced_hats:
     if h not in BASE_HAT_ENUM:
         # Domain-specific hat — verify it has a hats.json entry with non-empty description
         match = next((x for x in hats if x["hat_id"] == h), None)
-        assert match is not None and match.get("description","").strip(), \
-            f"halt-on-undocumented-hat: '{h}' is not in base enum and has no hats.json entry with a non-empty description"
+        if not (match is not None and match.get("description","").strip()):
+            print(f"HALT: halt-on-undocumented-hat: '{h}' is not in base enum and has no hats.json entry with a non-empty description", file=sys.stderr)
+            sys.exit(1)
 ```
 
 The generated schema MUST be a JSON Schema draft-07 document with the union enums above, the relaxed edge-id pattern (`^E-?[0-9]+[a-z]?$`), and a top-level `description` field naming the produced skill. Write the generated schema to `stages/N-JSON.md` as a third JSON code block titled `## generated_schema_content`. **N-EMIT step 4 copies THIS generated schema, not the GOTSCS default**, into the produced skill at `<skill>/graph.schema.json` (per the F-2.4 routing fix in `modules/N-EMIT.md`).
 
-**Adversarial check:** a brief could attempt to declare arbitrary hat values not present in any catalogue. The undocumented-hat guard above HALTs on hats absent from both the base enum and any documented `hats.json` entry. Mitigate further by (recommended) cross-checking produced hats against `briefing-core.md` H.6 hat-vocabulary union with brief-specified extensions.
+**Adversarial check:** a brief could attempt to declare arbitrary hat values not present in any catalogue. The undocumented-hat guard above HALTs on hats absent from both the base enum (`BASE_HAT_ENUM` defined above, sourced from the H.1 hat field closed-vocab in briefing-core.md) and any documented `hats.json` entry. Mitigate further by (recommended) cross-checking produced hats against BASE_HAT_ENUM union with brief-specified extensions.
 
 1.8. **Path-conditional wave sentinel (G-14).** Before serializing, for any node where `wave` is null or absent (path-conditional nodes that have no canonical wave assignment): set `wave = "path-conditional"`. This prevents `null` values in the wave field that trip arithmetic aggregation scripts (e.g., `Wave None: 20000` in token-budget totals). The string `"path-conditional"` is excluded from `total_waves` computation in step 1.5(c3) (`max(n.get("wave") for n in nodes if isinstance(n.get("wave"), int))`).
 
@@ -186,7 +187,24 @@ The generated schema MUST be a JSON Schema draft-07 document with the union enum
    - Every edge `source` and `target` references a valid node_id (or `skill_concept_brief` for E1)
    - `metadata.determinism_class` is one of `deterministic|seeded|non-deterministic`
 
-4. **Serialize hats.json.** Produce hats.json using the hats.json schema from hats.json template. Map every hat used by a node in the registry.
+4. **Serialize hats.json.** Produce hats.json as a **JSON array** (not a dict keyed by hat_id). Map every hat used by a node in the registry. Required output format:
+   ```json
+   [
+     {
+       "hat_id": "gate",
+       "description": "Guards entry into the pipeline; halts on brief quality failures",
+       "tier": "model-small",
+       "fallback_tier": "model-medium",
+       "downshiftable": true,
+       "downshift_threshold": 0.20,
+       "nodes": ["N-PREFLIGHT"],
+       "exec_types_allowed": ["inline"],
+       "capabilities_required": [],
+       "capabilities_excluded": []
+     }
+   ]
+   ```
+   Note: the field is `fallback_tier` (not `fallback`). Include `downshift_threshold` only on entries where `downshiftable: true`. GOTSCS's own `hats.json` uses a legacy dict format — do NOT copy that format; the produced skill's `hats.json` MUST be array format per step 1.5(e).
 
 5. **Write output** to `stages/N-JSON.md` containing both JSON blocks (as triple-backtick json code blocks). Emit signal: `json_result`.
 

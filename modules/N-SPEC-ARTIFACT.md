@@ -15,6 +15,24 @@ input_ports:
     format: markdown
     signal_field: design_blueprint
     required: true
+  - port: registry_result
+    format: markdown
+    signal_field: registry_result
+    required: false
+    note: "F-2 fix — read for authoritative per-node token_budget values in Per-Wave Token Cost table; N-REGISTRY is always available before N-SPEC-ARTIFACT in Wave 8"
+  - port: normalize_result
+    format: markdown
+    signal_field: normalize_digest
+    required: true
+  - port: constraints_result
+    format: markdown
+    signal_field: constraints_digest
+    required: true
+  - port: context_inventory
+    format: markdown
+    signal_field: context_inventory
+    required: false
+    note: "read when stages/N-CONTEXT-ANALYZE.md exists"
 output_ports:
   - port: spec_document
     format: markdown
@@ -46,10 +64,11 @@ When `--review-gates` is set, after writing the spec, the orchestrator pauses an
    <!-- DD-03 read-map for N-SPEC-ARTIFACT: briefing-core only. No appendices required. -->
 
 1. **Read inputs.**
-   - Read `stages/N-SYNTH-GRAPH.md` (graph_spec — primary).
+   - Read `stages/N-SYNTH-GRAPH.md` (graph_spec — primary). Also extract `design_notes:` from the frontmatter if present (F-3 fix — used in step 3 Pipeline Architecture).
    - Read `stages/N-AGG-DESIGN.md` (design_blueprint — for skill_name, input/output shapes, success criteria).
-   - Read `stages/N-NORMALIZE.md` (domain, input_shape, output_shape, success_criteria, latency_tolerance).
+   - Read `stages/N-NORMALIZE.md` (domain, input_shape, output_shape, success_criteria, latency_tolerance, constraint_count, brief_quality_advisory).
    - Read `stages/N-CONSTRAINTS.md` (inventory_items, anti_patterns_guarded — for Hard Constraints section).
+   - **Read `stages/N-REGISTRY.md` (F-2 fix — authoritative token_budget source).** Extract the per-node `scale_gates.token_budget` values from the Node Registry table. These replace the ESTIMATED values that N-WAVES carries. Sanity check: inline nodes must have `token_budget ≤ 8000`; spawn nodes must have `token_budget ≤ 30000`. Flag any violation as `token_budget_sanity_warning: <node_id> budget=<N>` in the rendered frontmatter. If `stages/N-REGISTRY.md` is absent (unexpected in --spec mode since Wave 6 always precedes Wave 8): fall back to N-WAVES ESTIMATED values and set `token_budget_source: estimated` in rendered frontmatter.
    - If `stages/N-CONTEXT-ANALYZE.md` exists: read it for the Design Decisions section.
 
 2. **Determine output paths.**
@@ -81,6 +100,7 @@ When `--review-gates` is set, after writing the spec, the orchestrator pauses an
 
    ## Purpose
    <2-4 sentences: what this skill does, who uses it, what problem it solves. Derived from domain + success_criteria. Written for a human reader.>
+   <F-5 fix: if node_count (from graph_spec) > 10 AND constraint_count (from N-NORMALIZE) < 8: append one additional sentence — "Note: This specification infers a <node_count>-node pipeline architecture from a brief with <constraint_count> explicit constraints. Simpler implementations are possible; treat this as a comprehensive blueprint, not a minimum viable design.">
 
    ## Input / Output
    **Accepts:** <input_shape — verbatim from normalize_digest>
@@ -98,6 +118,9 @@ When `--review-gates` is set, after writing the spec, the orchestrator pauses an
    ### Topology Diagram
    <ASCII pipeline diagram from graph_spec. Use [] for sequential nodes, (()) for aggregation nodes, --> for unconditional edges, --[condition]--> for conditional edges. Label mid-graph and final aggregation.>
 
+   <F-3 fix: if design_notes was extracted from stages/N-SYNTH-GRAPH.md frontmatter AND topology_class contains "GoT" AND density_observed < 3.0: render a Design Advisories callout immediately after the diagram:>
+   > ⚠️ **Design Advisory (edge density):** <design_notes.edge_density_advisory verbatim>
+
    ## Node Specifications
    <For each node in graph_spec Section 1 Node Registry, one subsection with: Role | Inputs | Outputs | Protocol description.>
 
@@ -108,7 +131,8 @@ When `--review-gates` is set, after writing the spec, the orchestrator pauses an
    <Simplified wave plan table. Columns: Wave | Nodes | Type | Brief description.>
 
    ## Per-Wave Token Cost
-   <Table: Wave | Nodes | Sum-of-token-budgets | Notes. Pulled directly from each node's scale_gates.token_budget within that wave. Provides up-front cost transparency before implementation.>
+   <F-2 fix: Pull token_budget values from stages/N-REGISTRY.md (read in step 1), NOT from N-WAVES ESTIMATED figures. N-REGISTRY is the authoritative source and is always available before N-SPEC-ARTIFACT runs. For each wave, sum the token_budget values from N-REGISTRY for each node in that wave. Do NOT label these as ESTIMATED. If N-REGISTRY was unavailable (fallback case): label the column "ESTIMATED" and add a footnote "Source: N-WAVES estimates — N-REGISTRY unavailable. Reconcile with graph.json scale_gates before implementation.">
+   Table: Wave | Nodes | Per-node budgets (tokens) | Wave total | Notes
 
    ## Design Decisions
    <Required output section per DD-11. List of design choices with one-sentence rationale. When --context is set, include preserved/upgraded/replaced classification per node. When --context is absent, document the design choices made by N-AGG-DESIGN (TRIZ resolutions, EC8 prunings, contradiction resolutions). Format: DD-id | description | rationale | source-node.>
@@ -118,6 +142,15 @@ When `--review-gates` is set, after writing the spec, the orchestrator pauses an
 
    ## Implementation Notes
    <Estimated effort, key complexity points, references to /writing-plans and /gotscs --skill.>
+
+   <F-1/F-6 fix: if brief_quality_advisory == "fragment_detected" (from N-NORMALIZE step 5): add a paragraph before the key complexity points:>
+   > ⚠️ **Brief Quality Advisory:** The input brief contained a grammatical fragment. One or more INVENTORY items (marked `[INFERRED from fragment]` in the Hard Constraints section) were inferred from incomplete phrases. Verify these constraints against the original brief's intent before beginning implementation.
+
+   ### Calibration Points
+   <F-4 fix: list every numeric constant inferred during pipeline execution that was NOT explicitly stated in the brief. Source from: N-SYNTH-GRAPH Section 5 Optimizations, N-REGISTRY scale_gates, N-AGG-DESIGN scale_gate_compliance. For each constant: check N-NORMALIZE constraints list — if the value appears there verbatim, mark [SPECIFIED]; otherwise mark ⚠️ INFERRED — validate before shipping.>
+   <Format each entry as: `<constant_name>: <value> — <brief description of what it controls> — [SPECIFIED | ⚠️ INFERRED — validate before shipping]`>
+   <Common inferred constants to check: score thresholds per node type, default recent-window N, domain probability gate threshold, compression ratio targets, graph summary size cap, back-edge retry cap.>
+   <If all constants were explicitly specified in the brief: emit "All calibration constants were explicitly specified in the brief. No inferred constants.">
 
    ## Standalone Prompt
    A self-contained prompt block with minimum 100 words total, structured as:

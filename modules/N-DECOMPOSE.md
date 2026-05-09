@@ -14,7 +14,8 @@ output_ports:
   - port: decompose_result
     format: markdown
     signal_field: decompose_digest
-raises_signals: [decompose_digest, conflict_signals]
+raises_signals: [decompose_digest]
+raises_signals_conditional: [conflict_signals]  # emitted only when validation_mode=true (ec-spec/ec-both)
 required_output_sections: [node_types, branching_points, aggregation_points, decompose_digest]
 ---
 

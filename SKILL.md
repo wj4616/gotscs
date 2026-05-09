@@ -1,6 +1,6 @@
 ---
 name: gotscs
-description: "Graph-of-Thought Skill-Creation Skill (GOTSCS) v4.0.0. Self-redesign of v3.1.0 driven by 8 design goals: ~27% token cost reduction (typical-mode; ~36% --skill mode), graceful degradation, optional --review-gates at Waves 5/8, true Wave-3 parallel-spawn, V-check shift-forward (smaller Wave-10 verifier), regression test suite (≥80% mutation-kill), config de-duplication, graph-as-truth strengthening (PRC1 schema validation). 19 nodes (2 conditional), 58 edges, 10 Waves. v4 keeps 19 of 19 v3.1.0 nodes; surgical refactor — no node replacements. Determinism: non-deterministic. Replacement of v3.1.0 on disk MUST gate through HC-13b safety procedure (5-brief regression battery + v3.1.0 backup)."
+description: "Graph-of-Thought Skill-Creation Skill (GOTSCS) v4.1.0. Self-redesign of v3.1.0 driven by 8 design goals: ~27% token cost reduction (typical-mode; ~36% --skill mode), graceful degradation, optional --review-gates at Waves 5/8, true Wave-3 parallel-spawn, V-check shift-forward (smaller Wave-10 verifier), regression test suite (≥80% mutation-kill), config de-duplication, graph-as-truth strengthening (PRC1 schema validation). 19 nodes (2 conditional), 58 edges, 10 Waves. v4 keeps 19 of 19 v3.1.0 nodes; surgical refactor — no node replacements. Determinism: non-deterministic. Replacement of v3.1.0 on disk MUST gate through HC-13b safety procedure (5-brief regression battery + v3.1.0 backup)."
 version: 4.1.0
 graph_file: graph.json
 hats_file: hats.json
@@ -379,7 +379,7 @@ Output: stages/N-CONSTRAINTS.md")
 ```
 Use a consistent `response_id` value (e.g., `"wave3-dispatch"`) to mark that all three came from one response. Sync to disk:
 ```bash
-~/.claude/skills/gotscs/scripts/sync-signal.sh "$SESSION_DIR" dispatch_log="$(python3 -c "import json,sys; ss=json.load(open(sys.argv[1])); print(json.dumps(ss.get('dispatch_log',[])+[{\"wave\":3,\"response_id\":\"wave3-dispatch\",\"spawn_ids\":[\"N-TOPOLOGY\",\"N-DECOMPOSE\",\"N-CONSTRAINTS\"]}]))" "$SESSION_DIR/SIGNAL_STATE.json")"
+~/.claude/skills/gotscs/scripts/dispatch-parallel.sh "$SESSION_DIR" 3 N-TOPOLOGY N-DECOMPOSE N-CONSTRAINTS
 ```
 
 Record all three in `executed_nodes`.
@@ -469,8 +469,8 @@ Output: <session_dir>/stages/N-EDGES.md")
 ```
 
 **Dispatch log (G-01/HC-23 enforcement):** After dispatching N-REGISTRY + N-EDGES in the same response, append to dispatch_log:
-```json
-{"wave": 6, "response_id": "wave6-dispatch", "spawn_ids": ["N-REGISTRY", "N-EDGES"]}
+```bash
+~/.claude/skills/gotscs/scripts/dispatch-parallel.sh "$SESSION_DIR" 6 N-REGISTRY N-EDGES
 ```
 
 **Wave 6 barrier:** All three stage files must exist. Record in `executed_nodes`. Sync Wave 6 signals to disk via P-005 helper:
@@ -608,6 +608,8 @@ Output: <session_dir>/stages/N-VERIFY.md")
 Execute N-EMIT inline per `modules/N-EMIT.md`.
 Write output files to `<session_output_base>/<skill_name>/`. **v4 output set:** SKILL.md, graph.json, graph.schema.json (NEW), hats.json, modules/ (19 files), briefing-core.md, briefing-appendix-{topology,contract,memory,antipatterns,vocab}.md (5 files), tests/run-smoke-tests.sh, tests/run-regression-suite.sh (NEW v4).
 Record in `executed_nodes`.
+
+**Back-edge routing (schema-fail):** If N-EMIT step 4b sets `emit_complete=false` with `'schema-fail' in repair_targets`: route via **E59 (N-EMIT→N-JSON)**. N-JSON re-runs steps 1.5(c2)+(c3)+(f) to auto-correct tier normalizations and regenerate the per-skill schema; increment `retry_count_artifact` via sync-signal.sh; then re-attempt N-EMIT. If `retry_count_artifact >= 1` on entry: halt with `halt-on-post-emit-validation-fail`.
 
 Emit to user (select block by MODE):
 

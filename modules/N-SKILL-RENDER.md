@@ -3,9 +3,11 @@ node_id: N-SKILL-RENDER
 node_type: FORMATTER
 hat: formatter
 exec_type: inline
+exec_type_conditional: "spawn when produced_node_count > 12 OR produced_edge_count > 20 OR estimated_skill_md_size_kb > 30; else inline (F-2.1 / F-3.5 fix — Rank-6 audit finding)"
 tier: model-medium
 mode_gate: "MODE in ['skill','both']"
 scale_gates: {token_budget: 10000, time_budget: 480, spawn_budget: 0, retry_budget: 1}
+scale_gates_conditional: {when: "exec_type=spawn", token_budget: 16000, time_budget: 600, spawn_budget: 1, retry_budget: 1}
 input_ports:
   - port: graph_spec
     format: markdown
@@ -52,6 +54,15 @@ required_output_sections: [rendered_skill_md]
 0. **Read briefing-core.md (and the appendices declared in the per-node read-map below).**
    <!-- DD-03 read-map for N-SKILL-RENDER: briefing-core only. Replace any embedded briefing-content reference with "see briefing-core.md". -->
 
+0.0a. **Exec-type self-evaluation (F-2.1 / F-3.5 fix — Rank-6 audit finding).** Before opening the input stage files, the orchestrator at SKILL.md STEP 9 evaluates this node's exec_type from the gate `produced_node_count > 12 OR produced_edge_count > 20 OR estimated_skill_md_size_kb > 30`:
+   - Read `stages/N-SYNTH-GRAPH.md` frontmatter for `node_count`, `edge_count`.
+   - Estimate `skill_md_size_kb` ≈ `node_count * 1.5 + edge_count * 0.4 + 12 KB base`. Empirically (audit run): 15 nodes / 26 edges → ≈45 KB estimate; actual 56 KB.
+   - If gate evaluates true: orchestrator dispatches N-SKILL-RENDER as a spawn with the conditional scale_gates `{token_budget: 16000, time_budget: 600, spawn_budget: 1, retry_budget: 1}`.
+   - If gate evaluates false: orchestrator runs N-SKILL-RENDER inline with the default scale_gates.
+   This conditional eliminates the F-2.1 protocol-deviation class (the audit run delegated to spawn out-of-band because the inline 10K budget could not hold the 56 KB SKILL.md assembly). The remaining protocol below is identical for both exec paths.
+
+   **Adversarial check:** a small skill (≤12 nodes, ≤20 edges, ≤30 KB) stays inline and saves the spawn cost. A large skill auto-promotes to spawn before token cliffs hit. If the size estimate is wrong, retry_budget=1 admits one re-attempt at the larger budget.
+
 0.5. **N-JSON dependency barrier (P0-4).** Confirm `stages/N-JSON.md` exists. Check its frontmatter for a `repair_pass:` key. If `repair_pass:` is present: N-JSON was repaired after a prior emission — **re-read all `scale_gates` values from the graph_json_content block in stages/N-JSON.md** before building the §1 Node Registry table. Using stale (pre-repair) budgets produces V13(e) failures. If `stages/N-JSON.md` is absent: HALT with `"N-SKILL-RENDER: json_result missing — N-JSON must complete before N-SKILL-RENDER executes"`.
 
 1. **Read 3 input stage files.** N-SYNTH-GRAPH already aggregates the registry/edges/waves/aggregation_policies content; the additional 2 reads provide the only sections N-SYNTH-GRAPH does not preserve (skill_name in normalize, inventory_items verbatim in constraints):
@@ -92,7 +103,13 @@ required_output_sections: [rendered_skill_md]
 
    **§0 ARCHITECTURE:** Pipeline summary from `graph_spec § pipeline_summary` (verbatim) + ASCII diagram from `graph_spec § pipeline_summary § Pipeline ASCII diagram`.
 
-   **§1 Node Registry:** Full table from `stages/N-SYNTH-GRAPH.md § node_registry` (originating in N-REGISTRY but already aggregated into graph_spec by Wave 7; all columns).
+   **§1 Node Registry:** Full table from `stages/N-SYNTH-GRAPH.md § node_registry` (originating in N-REGISTRY but already aggregated into graph_spec by Wave 7; all columns) — **with the following columns sourced authoritatively from `stages/N-JSON.md` graph_json_content rather than from N-SYNTH-GRAPH** (F-2.5 fix — Rank-4 audit finding):
+   - `Tier` column → read from `graph_json_content.nodes[i].tier` (N-JSON step 1.5(c2) normalized this; for no-llm nodes the canonical value is the literal string `"no-llm"`, NOT `"n/a (no-llm)"` or `"n/a"`).
+   - `scale gates` column → read from `graph_json_content.nodes[i].scale_gates` (N-JSON step 1.5(a) may have applied V16 promotions/inline-ceiling reductions; the post-repair values are authoritative).
+
+   Read these two columns from the graph_json_content code block in `stages/N-JSON.md`. All other columns (`stage ID`, `Hat`, `Module file`, `INPUT/OUTPUT ports`, `Join semantics`, `ai_advantages_exploited`, `spawn_share`, `one-line PROTOCOL`) read from N-SYNTH-GRAPH's node_registry as before. **Reason:** when N-JSON's repair-pass mutates tier (e.g., normalizes `n/a` → `no-llm`) or scale_gates (e.g., V16 spawn-promotion bumping spawn_budget from 0 to 1), the upstream N-SYNTH-GRAPH stage file is stale. Reading those two columns from graph_json_content guarantees the rendered §1 reflects the post-repair state.
+
+   **Adversarial check:** if N-JSON has not yet emitted (P0-4 ordering violation), the read fails immediately with the existing P0-4 barrier HALT, not silently. If `stages/N-JSON.md` exists but lacks `graph_json_content` (malformed N-JSON output), HALT with `halt-on-malformed-json-stage` rather than fall back to stale N-SYNTH-GRAPH values — silent fallback is the F-2.5 root cause.
 
    **§1.5 Aggregation Policies:** Full content from `stages/N-SYNTH-GRAPH.md § aggregation_policies` — MUST include V9 verbatim quote: `> "Aggregation is the defining unlock. It lets multiple independent thought branches merge into a single richer node — something no human-cognition model can do simultaneously. This is the machine advantage you need to design around."`
 

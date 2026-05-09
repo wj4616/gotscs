@@ -33,8 +33,8 @@
       "tier": "model-large",
       "downshiftable": true,
       "fallback_tier": "model-medium",
-      "downshift_threshold": 0.20,
-      "rationale": "Producing complete skill artifacts (registry tables, edge tables, module files) benefits from larger context."
+      "downshift_threshold": 0.30,
+      "rationale": "Producing complete skill artifacts (registry tables, edge tables, module files) benefits from larger context. Threshold raised 0.20→0.30 to match verifier hat (DD-08 precedent) — generator output quality is as critical as verifier accuracy for consumer-facing artifacts."
     },
     "formatter": {
       "tier": "model-medium",

@@ -69,10 +69,20 @@ required_output_sections: [graph_spec, consistency_checks_passed, pruned_nodes]
      - ToT topology: density < 3.0
      - GoT topology: density < 5.0
      Flag as advisory in `consistency_checks_passed` section. Does NOT block synthesis.
+     **F-3 fix:** When the advisory fires AND `topology_class` contains "GoT" AND density < 3.0 (structured DAG pattern), set a `design_notes` object for propagation to N-SPEC-ARTIFACT:
+     ```
+     design_notes:
+       edge_density_advisory: "density=<N> (edge_count/node_count) is below the GoT-full floor of 5.0; this pipeline uses a structured fan-out/fan-in DAG topology rather than a full GoT mesh. Verify this is intentional for this skill's domain. Consider whether cross-node reference edges between peer analysis nodes would improve result quality."
+       density_observed: <N>
+       density_threshold: 5.0
+       topology_class: <from N-TOPOLOGY>
+     ```
+     Emit this as a top-level `design_notes:` YAML block in `stages/N-SYNTH-GRAPH.md` frontmatter. N-SPEC-ARTIFACT reads this field (F-3/F-4 pipeline).
 
 3. **Contradiction resolve.** For any failed check: resolve by treating the Node Registry as authoritative (per source-of-truth rule). Document each resolution in `contradiction_resolutions`.
 
 4. **Build graph_spec.** Assemble unified specification combining corrected versions of all three tables plus:
+   - If `design_notes` was set in step 2 C7: include a `design_notes:` YAML block in the output frontmatter (F-3 fix — N-SPEC-ARTIFACT reads this to render a Design Advisories callout in the Pipeline Architecture section).
    - Pipeline ASCII diagram (per <output_format> item 1 format spec: nodes as `[NodeName]`, aggregation nodes as `((AggregatorName))`, unconditional edges as `-->`, conditional edges as `--[signal_class:condition]-->`)
    - Section 5 — Optimizations list
    - Section 5.5 — Failure Modes table

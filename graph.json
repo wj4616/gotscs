@@ -2,11 +2,11 @@
   "metadata": {
     "schema_version": "graph-v4-1",
     "skill_name": "gotscs",
-    "version": "4.0.0",
+    "version": "4.1.0",
     "determinism_class": "non-deterministic",
     "total_waves": 10,
     "total_nodes": 19,
-    "total_edges": 58,
+    "total_edges": 59,
     "topology": "full GoT + Wave-modular",
     "headline_token_budget": 81000,
     "typical_token_budget": 93000,
@@ -97,6 +97,7 @@
     {"id": "E55", "source": "N-CONTEXT-ANALYZE",   "target": "N-CONSTRAINTS",     "edge_type": "optional",            "signal_field": "context_inventory",   "gate_condition": null},
     {"id": "E56", "source": "N-CONTEXT-ANALYZE",   "target": "N-AGG-DESIGN",      "edge_type": "optional",            "signal_field": "context_inventory",   "gate_condition": null},
     {"id": "E57", "source": "N-JSON",              "target": "N-SKILL-RENDER",    "edge_type": "required",            "signal_field": "json_result",         "gate_condition": null},
-    {"id": "E58", "source": "N-PREFLIGHT",         "target": "N-CONTEXT-ANALYZE", "edge_type": "forward-conditional", "signal_field": "input_class",         "gate_condition": "input_class in ['ec-skill','ec-spec','ec-both']"}
+    {"id": "E58", "source": "N-PREFLIGHT",         "target": "N-CONTEXT-ANALYZE", "edge_type": "forward-conditional", "signal_field": "input_class",         "gate_condition": "input_class in ['ec-skill','ec-spec','ec-both']"},
+    {"id": "E59", "source": "N-EMIT",             "target": "N-JSON",            "edge_type": "back-edge",           "signal_field": "emit_complete",       "scale_gates": [0,0,0,0], "gate_condition": "emit_complete == false AND retry_count_artifact < 1 AND 'schema-fail' in repair_targets"}
   ]
 }

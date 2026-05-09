@@ -14,7 +14,8 @@ output_ports:
   - port: topology_result
     format: markdown
     signal_field: topology_digest
-raises_signals: [topology_digest, conflict_signals]
+raises_signals: [topology_digest]
+raises_signals_conditional: [conflict_signals]  # emitted only when validation_mode=true (ec-spec/ec-both)
 required_output_sections: [topology_class, wave_count_estimate, topology_digest]
 ---
 

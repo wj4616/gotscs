@@ -137,6 +137,20 @@ g['edges'] = [e for e in g['edges'] if e['id'] != 'E57']
 print(json.dumps(g, indent=2))
 "
 
+# --- Mutation 13: inject duplicate back-edge to N-AGG-DESIGN (F004 de-dup invariant) ---
+# Adds E51-CLONE with same gate as E50 — edge count jumps to 59; smoke test expects 58.
+# Guards: if E50/E51 de-dup is removed, a duplicate concurrent back-edge could be introduced.
+run_mutation "e50-e51-concurrent-duplicate-backedge" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+clone = {'id': 'E51-CLONE', 'source': 'N-VERIFY', 'target': 'N-AGG-DESIGN',
+         'edge_type': 'back-edge', 'signal_field': 'verify_pass',
+         'gate_condition': \"verify_pass == false AND retry_count_artifact < 1 AND 'registry_v13d_fail' in repair_targets\"}
+g['edges'].append(clone)
+g['metadata']['total_edges'] = len(g['edges'])
+print(json.dumps(g, indent=2))
+"
+
 cp "$TMP_DIR/graph.json.original" "$SKILL_DIR/graph.json"
 
 KILL_RATE=$(echo "scale=2; $KILLED * 100 / $TOTAL" | bc)
