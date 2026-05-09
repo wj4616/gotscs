@@ -7,13 +7,13 @@ hats_file: hats.json
 topology: full GoT + Wave-modular
 waves: 10
 nodes: 19
-edges: 58
+edges: 59
 determinism_class: non-deterministic
 ---
 
-# GOTSCS v4.0.0 — Orchestrator
+# GOTSCS v4.1.0 — Orchestrator
 
-A meta-skill that converts a text-form skill concept brief into a complete executable Claude Code skill package, a human-readable specification document, or both. v4.0.0 is a self-redesign focused on token-efficiency, graceful-degradation, and reviewability.
+A meta-skill that converts a text-form skill concept brief into a complete executable Claude Code skill package, a human-readable specification document, or both. v4.1.0 is a self-redesign focused on token-efficiency, graceful-degradation, and reviewability.
 
 You are the **orchestrator** for `gotscs`. You execute a 19-node (2 conditional), 10-Wave Graph-of-Thought pipeline declared in `graph.json`. Inline nodes run in your context (role-switched blocks); spawn nodes run as subagents via the `Agent` tool.
 
@@ -596,7 +596,7 @@ Dispatch N-VERIFY as spawn. **v4 deltas (DD-07):** tier shifted from `model-larg
 ```
 Agent(description="GOTSCS N-VERIFY: run residual V-battery (post-DD-06 left-shift)",
   prompt="Execute N-VERIFY per modules/N-VERIFY.md.
-Read briefing-core.md and briefing-appendix-contract.md first (HC-13b).
+Read briefing-core.md and ALL 5 appendices (briefing-appendix-topology.md, briefing-appendix-contract.md, briefing-appendix-memory.md, briefing-appendix-antipatterns.md, briefing-appendix-vocab.md) first (HC-13b DD-03 read-map — N-VERIFY is the only node that loads the full briefing complement).
 Input stage files:
   - <session_dir>/stages/N-MODULES.md
   - <session_dir>/stages/N-JSON.md
@@ -834,13 +834,13 @@ The Registry contains 19 nodes (17 unconditional + 2 conditional: N-CONTEXT-ANAL
 
 > "Aggregation is the defining unlock. It lets multiple independent thought branches merge into a single richer node — something no human-cognition model can do simultaneously. This is the machine advantage you need to design around."
 
-GOTSCS v4.0.0 declares **three** aggregations (two mid-graph + one final). All policies live in `graph.json` on the aggregator nodes and are restated here for human-readable reference (HC-01: graph.json remains authoritative; this section is documentation-only).
+GOTSCS v4.1.0 declares **three** aggregations (two mid-graph + one final). All policies live in `graph.json` on the aggregator nodes and are restated here for human-readable reference (HC-01: graph.json remains authoritative; this section is documentation-only).
 
 | Aggregator | Wave | Role | Incoming branches | Aggregation policy / Join semantics |
 |---|---|---|---|---|
 | **N-AGG-DESIGN** | 4 | mid-graph #1 | N-TOPOLOGY, N-DECOMPOSE, N-CONSTRAINTS, +(N-CONTEXT-ANALYZE optional) | `triz-synthesize + contradiction-resolve; AND-join; branch_budget_cap=3 (+1 optional context)` |
 | **N-SYNTH-GRAPH** | 7 | mid-graph #2 | N-REGISTRY, N-EDGES, N-WAVES | `weighted-merge + cross-table ID consistency check; AND-join; branch_budget_cap=3` |
-| **N-VERIFY** | 10 | final contract-join | N-MODULES, N-JSON, N-SKILL-RENDER | `concatenate + residual V-battery (V1, V2, V3, V4, V7, V8, V9, V10, V13(a/b/c/e), V14, V15, V16, V17, V18, V19, H.4); AND-join; branch_budget_cap=3` |
+| **N-VERIFY** | 10 | final contract-join | N-MODULES, N-JSON, N-SKILL-RENDER | `concatenate + residual V-battery (V1, V2, V3, V4, V5-ext, V7, V8, V9, V10, V11, V13(a/b/c/e), V14, V15, V16, V17, V18, V19, V20, V21, V22, V23, H.4); AND-join; branch_budget_cap=3` |
 
 **Why TRIZ-synthesize at Wave 4:** the three Wave-3 analyses examine orthogonal axes (topology, decomposition, constraints) that often produce contradictions (e.g., a constraint may demand more nodes than the topology can hold). TRIZ separation principles (in time / in space / in condition / in structure) provide a disciplined contradiction-resolution vocabulary. Documented in `design_blueprint § contradiction_resolutions`.
 
@@ -856,7 +856,7 @@ To inspect:
 - Read `graph.json` directly, or
 - Run `~/.claude/skills/gotscs/scripts/validate-graph.sh --print-edges`
 
-The Edge Table contains 58 rows. Edge type breakdown: required=15, optional=6, gate-open=3, forward-conditional=20, back-edge=9, terminal=5. Closed-vocab enforcement via `graph.schema.json` (HC-03).
+The Edge Table contains 59 rows. Edge type breakdown: required=15, optional=6, gate-open=3, forward-conditional=20, back-edge=10, terminal=5. Closed-vocab enforcement via `graph.schema.json` (HC-03).
 
 ## §3 MODE MATRIX (from N-WAVES)
 

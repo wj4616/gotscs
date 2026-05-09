@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# GOTSCS v4.0.0 — smoke tests
+# GOTSCS v4.1.0 — smoke tests
 # Purpose: structural validity check. Run after every install / change.
 # Exits 0 if all checks pass; 1 otherwise.
 
@@ -38,7 +38,7 @@ python3 -c "import json; json.load(open('$SKILL_DIR/graph.schema.json'))" 2>/dev
 NODES=$(python3 -c "import json; print(len(json.load(open('$SKILL_DIR/graph.json'))['nodes']))")
 EDGES=$(python3 -c "import json; print(len(json.load(open('$SKILL_DIR/graph.json'))['edges']))")
 check "$NODES" "19" "node count"
-check "$EDGES" "58" "edge count"
+check "$EDGES" "59" "edge count"
 
 # --- Conditional nodes (2: N-CONTEXT-ANALYZE, N-BEHAVIORAL) ---
 COND=$(python3 -c "import json; g=json.load(open('$SKILL_DIR/graph.json')); print(sum(1 for n in g['nodes'] if n.get('conditional')))")
@@ -58,8 +58,8 @@ print(','.join(bad) if bad else 'NONE')
 ")
 [ "$BAD_EDGE_TYPES" = "NONE" ] && pass "edge_type closed-vocab (HC-03)" || fail "edge_type drift: $BAD_EDGE_TYPES"
 
-# --- 3 new v4 back-edges present ---
-for E in E50 E51 E52; do
+# --- 4 new v4 back-edges present (E50/E51/E52 + E59 added in v4.1.0) ---
+for E in E50 E51 E52 E59; do
   python3 -c "import json,sys; g=json.load(open('$SKILL_DIR/graph.json')); sys.exit(0 if any(e['id']=='$E' for e in g['edges']) else 1)" \
     && pass "v4 new back-edge: $E" || fail "missing v4 back-edge: $E"
 done

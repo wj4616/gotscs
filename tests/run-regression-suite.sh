@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# GOTSCS v4.0.0 — regression test suite (NEW per Goal-6 / DD-10)
+# GOTSCS v4.1.0 — regression test suite (NEW per Goal-6 / DD-10)
 # Purpose: structural mutation-kill tests on graph.json modifications.
 # Target: ≥80% kill rate on injected mutations.
 
@@ -140,7 +140,7 @@ print(json.dumps(g, indent=2))
 "
 
 # --- Mutation 13: inject duplicate back-edge to N-AGG-DESIGN (F004 de-dup invariant) ---
-# Adds E51-CLONE with same gate as E50 — edge count jumps to 59; smoke test expects 58.
+# Adds E51-CLONE with same gate as E50 — edge count jumps to 60; smoke test expects 59.
 # Guards: if E50/E51 de-dup is removed, a duplicate concurrent back-edge could be introduced.
 run_mutation "e50-e51-concurrent-duplicate-backedge" "
 import json
