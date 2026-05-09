@@ -105,6 +105,11 @@ required_output_sections: [v_battery_results, verify_pass]
    - If a wave's spawns are spread across multiple response_id entries: emit advisory `"V20-advisory: HC-23 violation at Wave <W> — spawns dispatched across <N> responses instead of 1"`. Under `--strict-dispatch` flag: promote to HARD FAIL and add `'V20'` to repair_targets with `halt-on-hc23-dispatch-violation`.
    - If a wave's spawns are all under one response_id: emit `"V20: Wave <W> dispatch-granularity PASS"`.
 
+2.6. **V23 (hats.json array format — F003 left-shift).** Read `stages/N-JSON.md`. Locate the `hats_json_content` triple-backtick JSON block. Parse the first non-whitespace character of the block content:
+   - If it is `[`: emit `"V23: hats_json_content array format PASS"`. Non-blocking.
+   - If it is `{`: add `'V23-hats-dict-format'` to repair_targets with advisory `"V23 FAIL: hats_json_content is dict-keyed (legacy GOTSCS format) — N-JSON step 4 must produce array format per step 1.5(e)"`. Route to N-JSON via the standard V-fail back-edge (re-run N-JSON step 4). Under default mode: advisory (non-blocking). Under `--strict-verify`: promote to HARD FAIL, set verify_pass=false.
+   - If `stages/N-JSON.md` missing or block absent: skip (N-JSON not yet run; not applicable at this point).
+
 3. **Run H.4 four-check contract:**
    ```yaml
    checks:

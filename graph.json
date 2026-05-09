@@ -14,6 +14,8 @@
     "token_reduction_typical": "26%",
     "token_reduction_skill_unconditional": "36%",
     "sinks": ["REFUSE_OUTPUT", "SPEC_OUTPUT", "SKILL_OUTPUT", "BEHAVIORAL_REPORT", "REVIEW_GATE_AUDIT"],
+    "mutation_kill_target": 0.80,
+    "context_optional_consumers": ["N-TOPOLOGY", "N-DECOMPOSE", "N-CONSTRAINTS", "N-AGG-DESIGN", "N-DESIGN-GATE", "N-SPEC-ARTIFACT"],
     "v4_deltas_summary": "v4.0.0 self-redesign of v3.1.0. 19/19 nodes preserved (no replacements). 3 exec promotions (Wave-3 trio inline→spawn per DD-04). 5 V-shifts upstream (V19→N-CONTEXT-ANALYZE, V13d→N-REGISTRY, V12+V5→N-EDGES, V6→N-MODULES, V11→N-SKILL-RENDER per DD-06). 2 tier shifts (N-VERIFY large→medium, N-SPEC-ARTIFACT small→medium per DD-07). 7 token-budget cuts. 3 new back-edges (E50/E51/E52). Briefing split (1→6 files per DD-03). --review-gates flag (DD-01). Cross-cutting graceful degradation (DD-02). Regression suite (DD-10). graph.schema.json (DD-09). HC-13b restatement (CR-03)."
   },
   "skill_path": "~/.claude/skills/gotscs/",

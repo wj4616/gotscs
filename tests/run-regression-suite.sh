@@ -9,8 +9,10 @@ SMOKE="$SKILL_DIR/tests/run-smoke-tests.sh"
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
 
+KILL_TARGET=$(python3 -c "import json; print(int(json.load(open('$SKILL_DIR/graph.json'))['metadata'].get('mutation_kill_target', 0.80) * 100))" 2>/dev/null || echo 80)
+
 echo "GOTSCS v4 regression suite — $(date)"
-echo "Target: ≥80% mutation-kill rate on graph.json"
+echo "Target: ≥${KILL_TARGET}% mutation-kill rate on graph.json"
 echo ""
 
 # --- Backup original graph.json ---
@@ -157,12 +159,11 @@ KILL_RATE=$(echo "scale=2; $KILLED * 100 / $TOTAL" | bc)
 echo ""
 echo "REGRESSION SUITE RESULT: $KILLED / $TOTAL killed ($KILL_RATE%)"
 
-# Pass at ≥80%
-THRESHOLD_PASS=$(echo "$KILL_RATE >= 80" | bc)
+THRESHOLD_PASS=$(echo "$KILL_RATE >= $KILL_TARGET" | bc)
 if [ "$THRESHOLD_PASS" = "1" ]; then
-  echo "PASS: kill rate ≥80% (Goal-6 target met)"
+  echo "PASS: kill rate ≥${KILL_TARGET}% (mutation_kill_target from graph.json met)"
   exit 0
 else
-  echo "FAIL: kill rate <80% (Goal-6 target missed)"
+  echo "FAIL: kill rate <${KILL_TARGET}% (mutation_kill_target from graph.json missed)"
   exit 1
 fi

@@ -540,17 +540,7 @@ Execute N-SPEC-ARTIFACT as inline role-switched block. Read `stages/N-SYNTH-GRAP
 
 Attention-reset: Read `modules/N-MODULES.md`.
 
-Dispatch N-MODULES as spawn (writes per-file outputs to `stages/modules/<node_id>.md` per P-001):
-```
-Agent(description="GOTSCS N-MODULES: generate per-node module files",
-  prompt="Execute N-MODULES per modules/N-MODULES.md.
-Read briefing-core.md and briefing-appendix-contract.md first (HC-13b).
-Input: <session_dir>/stages/N-SYNTH-GRAPH.md
-Output: write each module to <session_dir>/stages/modules/<node_id>.md (per-file emission per P-001).
-Write a thin index manifest to <session_dir>/stages/N-MODULES.md (no embedded module bodies).")
-```
-
-**N-JSON exec-type gate (G-02).** Before dispatching N-JSON, evaluate the exec_type_conditional from `modules/N-JSON.md`:
+**N-JSON exec-type gate (G-02).** Evaluate the exec_type_conditional from `modules/N-JSON.md` BEFORE dispatching anything this wave:
 ```python
 # Read node/edge counts from stages/N-SYNTH-GRAPH.md frontmatter
 node_count = <parsed from stages/N-SYNTH-GRAPH.md>
@@ -558,8 +548,32 @@ edge_count  = <parsed from stages/N-SYNTH-GRAPH.md>
 est_kb = node_count * 1.8 + edge_count * 0.5 + 5
 n_json_spawn = (node_count > 12 or edge_count > 20 or est_kb > 20)
 ```
-- If `n_json_spawn=True`: dispatch N-JSON as a **spawn** (scale_gates: 8000 tokens, 360s, spawn_budget=1). Include `exec_type_resolved: spawn` in the Agent prompt.
-- If `n_json_spawn=False`: execute N-JSON **inline** as role-switched block (scale_gates: 3000 tokens, 300s).
+- If `n_json_spawn=True`: **dispatch N-MODULES AND N-JSON in the same response** (parallel dispatch per HC-23 / I-01). N-MODULES reads from N-SYNTH-GRAPH/N-REGISTRY/N-EDGES (all Wave 8 outputs); N-JSON reads from N-SYNTH-GRAPH. No shared write targets — safe to overlap.
+  ```
+  Agent(description="GOTSCS N-MODULES: generate per-node module files",
+    prompt="Execute N-MODULES per modules/N-MODULES.md.
+  Read briefing-core.md and briefing-appendix-contract.md first (HC-13b).
+  Input: <session_dir>/stages/N-SYNTH-GRAPH.md
+  Output: write each module to <session_dir>/stages/modules/<node_id>.md (per-file emission per P-001).
+  Write a thin index manifest to <session_dir>/stages/N-MODULES.md (no embedded module bodies).")
+
+  Agent(description="GOTSCS N-JSON: serialize graph.json and hats.json",
+    prompt="Execute N-JSON per modules/N-JSON.md. exec_type_resolved: spawn (n_json_spawn=True gate).
+  ...")
+  ```
+  Log both to dispatch:
+  ```bash
+  ~/.claude/skills/gotscs/scripts/dispatch-parallel.sh "$SESSION_DIR" 9 N-MODULES N-JSON
+  ```
+
+- If `n_json_spawn=False`: dispatch N-MODULES as spawn, execute N-JSON **inline** as role-switched block (scale_gates: 3000 tokens, 300s). N-MODULES can run concurrently while N-JSON runs inline.
+  ```
+  Agent(description="GOTSCS N-MODULES: generate per-node module files", ...)
+  ```
+  ```bash
+  ~/.claude/skills/gotscs/scripts/dispatch-parallel.sh "$SESSION_DIR" 9 N-MODULES
+  ```
+  Then execute N-JSON inline.
 
 Execute N-JSON per `modules/N-JSON.md` (inline or spawn per gate above). Write `stages/N-JSON.md`. **N-JSON must complete and its stage file must exist before N-SKILL-RENDER is dispatched (P0-4 ordering constraint).** This is a hard sequential dependency: N-SKILL-RENDER sources scale_gates values from the graph_json_content block; if N-JSON is repaired after a failed first pass, N-SKILL-RENDER must read the repaired values or it will emit a stale §1 Node Registry table (V13(e) failure).
 
