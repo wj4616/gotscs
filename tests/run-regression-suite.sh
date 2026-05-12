@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# GOTSCS v4.1.0 — regression test suite (NEW per Goal-6 / DD-10)
+# GOTSCS v4.3.0 — regression test suite (NEW per Goal-6 / DD-10)
 # Purpose: structural mutation-kill tests on graph.json modifications.
 # Target: ≥80% kill rate on injected mutations.
 
@@ -51,8 +51,8 @@ g['edges'] = [e for e in g['edges'] if e['id'] != 'E29']
 print(json.dumps(g, indent=2))
 "
 
-# --- Mutation 3: add a node beyond cap (should fail HC-02) ---
-run_mutation "add-node-21st" "
+# --- Mutation 3: add a node beyond standard cap (should fail HC-02) ---
+run_mutation "add-node-31st" "
 import json
 g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
 g['nodes'].append({'id': 'N-EXTRA', 'type': 'GATE', 'exec_type': 'inline', 'hat': 'gate', 'tier': 'model-small', 'wave': 1, 'scale_gates': {'token_budget': 100, 'time_budget': 10, 'spawn_budget': 0, 'retry_budget': 0}, 'input_dependencies': [], 'raises_signals': []})
@@ -159,6 +159,116 @@ import json
 g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
 g['edges'] = [e for e in g['edges'] if e['id'] != 'E59']
 g['metadata']['total_edges'] = len(g['edges'])
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 15 (v4.3): drop N-FUSION-ANALYZE node entirely (should fail node count + module count) ---
+run_mutation "drop-v4.3-fusion-node" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+g['nodes'] = [n for n in g['nodes'] if n['id'] != 'N-FUSION-ANALYZE']
+g['edges'] = [e for e in g['edges'] if e['source'] != 'N-FUSION-ANALYZE' and e['target'] != 'N-FUSION-ANALYZE']
+g['metadata']['total_nodes'] = len(g['nodes'])
+g['metadata']['total_edges'] = len(g['edges'])
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 16 (v4.3): drop primary fusion edge E62 (N-FUSION-ANALYZE→N-AGG-DESIGN) ---
+run_mutation "drop-v4.3-fusion-edge-E62" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+g['edges'] = [e for e in g['edges'] if e['id'] != 'E62']
+g['metadata']['total_edges'] = len(g['edges'])
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 17 (v4.3): drop conditional flag from N-FUSION-ANALYZE (changes conditional count) ---
+run_mutation "drop-v4.3-fusion-conditional" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+for n in g['nodes']:
+    if n['id'] == 'N-FUSION-ANALYZE':
+        n.pop('conditional', None)
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 18 (v4.3): corrupt N-FUSION-ANALYZE mode_gate (would silently fire in overlay) ---
+run_mutation "drop-v4.3-fusion-mode-gate" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+for n in g['nodes']:
+    if n['id'] == 'N-FUSION-ANALYZE':
+        n.pop('mode_gate', None)
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 19 (v4.3 Phase 2 / F101): strip N-FUSION-ANALYZE from N-AGG-DESIGN.input_dependencies ---
+run_mutation "drop-v4.3-fusion-input-dep-from-N-AGG-DESIGN" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+for n in g['nodes']:
+    if n['id'] == 'N-AGG-DESIGN':
+        n['input_dependencies'] = [d for d in n.get('input_dependencies', []) if d != 'N-FUSION-ANALYZE']
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 20 (v4.3 Phase 2 / F101): strip N-FUSION-ANALYZE from N-DECOMPOSE.input_dependencies ---
+run_mutation "drop-v4.3-fusion-input-dep-from-N-DECOMPOSE" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+for n in g['nodes']:
+    if n['id'] == 'N-DECOMPOSE':
+        n['input_dependencies'] = [d for d in n.get('input_dependencies', []) if d != 'N-FUSION-ANALYZE']
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 21 (v4.3 Phase 2 / F101): strip N-FUSION-ANALYZE from N-CONSTRAINTS.input_dependencies ---
+run_mutation "drop-v4.3-fusion-input-dep-from-N-CONSTRAINTS" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+for n in g['nodes']:
+    if n['id'] == 'N-CONSTRAINTS':
+        n['input_dependencies'] = [d for d in n.get('input_dependencies', []) if d != 'N-FUSION-ANALYZE']
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 22 (v4.3 / M2 fix): drop fusion_overflow_flag from N-FUSION-ANALYZE outputs ---
+run_mutation "drop-v4.3-fusion-overflow-flag" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+for n in g['nodes']:
+    if n['id'] == 'N-FUSION-ANALYZE':
+        n['raises_signals'] = [s for s in n.get('raises_signals', []) if s != 'fusion_overflow_flag']
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 23 (v4.3 / M2 fix): change V26 sub-checks count claim in metadata ---
+run_mutation "v26-residual-battery-arity-drift" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+md = g.setdefault('metadata', {})
+# v26 declared as 6-sub-check battery (a/b/c/d/e/f) — mutation reduces to 4
+md['v26_subcheck_count'] = 4  # injects a metadata claim that conflicts with module spec
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 24 (v4.3 / M2 fix): strip aggregation_policy from N-FUSION-ANALYZE (must be AGGREGATION type) ---
+run_mutation "strip-aggregation-policy-from-fusion" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+for n in g['nodes']:
+    if n['id'] == 'N-FUSION-ANALYZE' and n.get('type') == 'AGGREGATION':
+        n.pop('aggregation_policy', None)
+print(json.dumps(g, indent=2))
+"
+
+# --- Mutation 25 (v4.3 / M2 fix): break HC-23 metadata array consistency ---
+run_mutation "hc23-metadata-array-broken" "
+import json
+g = json.load(open(__import__('os').environ['GRAPH_SOURCE']))
+md = g.setdefault('metadata', {})
+# Inject a wave into hc23_parallel_dispatch_waves that has no parallel-dispatch_required nodes
+md['hc23_parallel_dispatch_waves'] = sorted(set(md.get('hc23_parallel_dispatch_waves', []) + [99]))
 print(json.dumps(g, indent=2))
 "
 

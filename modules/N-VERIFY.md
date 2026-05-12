@@ -55,6 +55,8 @@ required_output_sections: [v_battery_results, verify_pass]
 0. **Read briefing-core.md (and the appendices declared in the per-node read-map below).**
    <!-- DD-03 read-map for N-VERIFY: briefing-core + ALL 5 appendices (briefing-appendix-topology + briefing-appendix-contract + briefing-appendix-memory + briefing-appendix-antipatterns + briefing-appendix-vocab). N-VERIFY is the only node that loads the full briefing complement. -->
 
+0.5. **Read cap tier (I-01).** Read `stages/cap_tier.md`. Extract `max_nodes`, `max_waves`, `max_edges`. If missing: fall back to standard caps (30/15/100) and log advisory. Use these values for all cap-dependent checks below (especially V7).
+
 1. **Await AND-join, then run residual battery.** Confirm all three stage files exist: `stages/N-MODULES.md`, `stages/N-JSON.md`, `stages/N-SKILL-RENDER.md`. If any is missing: HALT with the name of the missing signal. Then read `stages/N-SKILL-RENDER.md` into working context — V11 checks inventory items against this rendered SKILL.md content.
 
    **Residual battery (per DD-06).** v4 removes V5/V6/V11/V12/V13(d) responsibilities from N-VERIFY because they have been pre-shifted upstream (V5/V12 to N-EDGES step 0.5; V6 to N-MODULES step 0.5; V13(d) to N-REGISTRY step 0.5; V11 remains BLOCKING here per P-003 but the upstream early-shifts catch most failures before reaching this gate). The residual battery to run is:
@@ -78,7 +80,7 @@ required_output_sections: [v_battery_results, verify_pass]
    - **V2:** Domain-neutral substitution test — would this graph topology remain valid if node names were replaced with names from an arbitrary domain? (reasoning check)
    - **V3:** At least one aggregation Node is NOT the final emit.
    - **V4:** All aggregation Nodes have decomposition trees, synthesis strategy, Join semantics, activation conditions, and branch-budget cap declared.
-   - **V7:** Wave count ≤10; every Wave has declared spawn budget AND failure_grace; total spawn budget declared; at least one Wave has attention-reset.
+   - **V7:** Wave count ≤cap_tier.max_waves; every Wave has declared spawn budget AND failure_grace; total spawn budget declared; at least one Wave has attention-reset.
    - **V8 (spawn-count parity — G-07 split):**
      - **V8a:** `graph_json.metadata.spawn_node_count` == `sum(1 for n in nodes if n.exec_type=="spawn")`. FAIL if mismatch (HARD).
      - **V8b:** `graph_json.metadata.max_concurrent_spawns_per_run` ≤ HG-07 cap for the strictest applicable mode (≤7 under verbose strict-verify). FAIL if exceeded (HARD).
@@ -86,7 +88,7 @@ required_output_sections: [v_battery_results, verify_pass]
      - **V8d:** hats.json maps every Hat to exactly one tier; every downshiftable Hat has fallback_tier + downshift_threshold. FAIL if missing (HARD).
    - **V9:** Verbatim quote "Aggregation is the defining unlock..." appears in Section 1.5 (Aggregation Policies).
    - **V10 (residual):** Final attestation — set(node_ids) == set(filenames-without-extension). Primary check already executed by N-MODULES step 0.5; this is a confirm-only re-check on the post-emit stage outputs.
-   - **V13 (residual a, b, c, e):** (a) All Nodes have 4-dimension scale gates. (b) Determinism class consistency. (c) H.7 AI-advantages floor ≥3 distinct entries. (e) Any other Section-1/2 cross-table residual sanity (note: V13(d) — graph.json node/edge ID matching — was pre-shifted to N-REGISTRY step 0.5).
+   - **V13 (residual a, b, c1, c2, e):** (a) All Nodes have 4-dimension scale gates. (b) Determinism class consistency. **(c1) AP-V4 footnote-vs-table arithmetic propagation** — for any edge-type-distribution footnote present in stages/N-AGG-DESIGN.md, stages/N-EDGES.md, or stages/N-SYNTH-GRAPH.md, the footnote's per-type counts MUST equal the row-count enumeration of the corresponding table. Surface the upstream advisory if N-EDGES/N-SYNTH-GRAPH already raised one; advisory propagates to N-VERIFY scope so repair_targets routing is unambiguous. **(c2) AP-T1 metadata-consumption check** — every metadata field declared in graph.json metadata block must be referenced somewhere in the produced SKILL.md, modules/, or graph.schema.json (HC-01 documentary-only metadata guard). (c) is the union of c1 and c2 for backward-compat repair_targets keying. (e) Any other Section-1/2 cross-table residual sanity (note: V13(d) — graph.json node/edge ID matching — was pre-shifted to N-REGISTRY step 0.5).
    - **V11 (BLOCKING per P-003):** All INVENTORY items from constraints_digest appear verbatim in Hard Gates or module Preserved INVENTORY sections of the rendered SKILL.md (the `stages/N-SKILL-RENDER.md` content loaded in step 1). Comparison uses **whitespace-normalized substring match** (collapse runs of `\s+` to single space, trim leading/trailing whitespace). For each missing item, append `repair_target: V11; missing_inventory_item: "<verbatim text>"` to the repair_targets list. When V11 fails, also add the string `'V11'` to repair_targets — this tag triggers the back-edge E41 routing to N-SKILL-RENDER for re-render.
    - **V14 (Determinism-class match):** graph.json `metadata.determinism_class` ↔ SKILL.md `Determinism:` line match. Always required.
    - **V15 (AGG-vs-SYNTHESIS type discrimination):** All artifact-synthesis nodes have type=SYNTHESIS; all understanding-synthesis nodes have type=AGGREGATION (HC-16/AP-06 guard). Always required.
@@ -100,15 +102,76 @@ required_output_sections: [v_battery_results, verify_pass]
 
 2.4. **V21 (HG-04 closure — G-03).** If HG-04 (standalone-default) appears in `stages/N-CONSTRAINTS.md` inventory_items: verify that `<skill_path>/modules/kb-snippets.md` exists AND has size ≥ 1KB. If missing or empty: add `'V21'` to repair_targets with `halt-on-hg04-not-closed`; set verify_pass=false. If HG-04 is not in inventory: skip (V21 not applicable).
 
-2.5. **V20 (dispatch-granularity — G-01).** Read `SIGNAL_STATE["dispatch_log"]` from `$SESSION_DIR/SIGNAL_STATE.json`. For each wave with `parallel_dispatch_required: true` (Wave 3: spawns N-TOPOLOGY/N-DECOMPOSE/N-CONSTRAINTS; Wave 6: spawns N-REGISTRY/N-EDGES), check that all spawn_ids for that wave appear under a single `response_id` entry in dispatch_log.
-   - If dispatch_log is empty or missing the wave entry: emit advisory `"V20-advisory: dispatch_log not populated for wave <W> — HC-23 compliance unverifiable"`. Non-blocking.
-   - If a wave's spawns are spread across multiple response_id entries: emit advisory `"V20-advisory: HC-23 violation at Wave <W> — spawns dispatched across <N> responses instead of 1"`. Under `--strict-dispatch` flag: promote to HARD FAIL and add `'V20'` to repair_targets with `halt-on-hc23-dispatch-violation`.
-   - If a wave's spawns are all under one response_id: emit `"V20: Wave <W> dispatch-granularity PASS"`.
+2.5. **V20 (dispatch-granularity — G-01).** Split into two independent sub-checks per H4 fix:
+
+**V20a — GOTSCS host dispatch-log compliance (always evaluated).** Read `SIGNAL_STATE["dispatch_log"]` from `$SESSION_DIR/SIGNAL_STATE.json`. For each GOTSCS-host wave with `parallel_dispatch_required: true` (Wave 3: spawns N-TOPOLOGY/N-DECOMPOSE/N-CONSTRAINTS; Wave 6: spawns N-REGISTRY/N-EDGES; Wave 9 [conditional]: spawns N-MODULES + N-JSON when n_json_spawn=True), check that all spawn_ids for that wave appear under a single `response_id` entry in dispatch_log.
+   - If dispatch_log is empty or missing the wave entry: emit advisory `"V20a-advisory: dispatch_log not populated for wave <W> — HC-23 compliance unverifiable"`. Non-blocking.
+   - If a wave's spawns are spread across multiple response_id entries: emit advisory `"V20a-advisory: HC-23 violation at Wave <W> — spawns dispatched across <N> responses instead of 1"`. Under `--strict-dispatch` or `--strict-procedural`: promote to HARD FAIL and add `'V20a'` to repair_targets with `halt-on-hc23-dispatch-violation`.
+   - If a wave's spawns are all under one response_id: emit `"V20a: Wave <W> dispatch-granularity PASS"`.
+
+**V20b — produced-skill design-time dispatch declarations (always evaluated when graph_spec is present).** V20a verifies how GOTSCS itself dispatched its own waves; V20b verifies that the *produced skill* declares the right metadata for its own runtime to honor HC-23. Read `stages/N-JSON.md` graph_json_content. For every node N where `N.parallel_dispatch_required == true`:
+   - At least one sibling node M (M ≠ N) MUST exist in the same wave, also with `parallel_dispatch_required == true`. A solo `parallel_dispatch_required` node is a contradiction.
+   - The wave number containing N MUST appear in `metadata.hc23_parallel_dispatch_waves` array.
+   - For every wave in `metadata.hc23_parallel_dispatch_waves`, the count of nodes in that wave with `parallel_dispatch_required == true` MUST be ≥ 2.
+   - For every wave in `metadata.intra_wave_sequential` (if present), at least one node in that wave MUST declare `intra_wave_dispatch_pattern: sequential-after:<predecessor_node_id>`.
+   On any V20b failure: add `'V20b'` to repair_targets with diagnostic `"V20b: produced-skill HC-23 metadata internally inconsistent — <node_id> declares parallel_dispatch_required but lacks sibling / wave is not in hc23_parallel_dispatch_waves array"`. Non-blocking by default; under `--strict-procedural`: HARD FAIL with `halt-on-strict-procedural-violation: V20b`. Routes to N-JSON via E28 back-edge.
+   - If graph_json_content has no `parallel_dispatch_required` flag on any node: skip V20b (greenfield single-thread skills are valid).
 
 2.6. **V23 (hats.json array format — F003 left-shift).** Read `stages/N-JSON.md`. Locate the `hats_json_content` triple-backtick JSON block. Parse the first non-whitespace character of the block content:
    - If it is `[`: emit `"V23: hats_json_content array format PASS"`. Non-blocking.
    - If it is `{`: add `'V23-hats-dict-format'` to repair_targets with advisory `"V23 FAIL: hats_json_content is dict-keyed (legacy GOTSCS format) — N-JSON step 4 must produce array format per step 1.5(e)"`. Route to N-JSON via the standard V-fail back-edge (re-run N-JSON step 4). Under default mode: advisory (non-blocking). Under `--strict-verify`: promote to HARD FAIL, set verify_pass=false.
    - If `stages/N-JSON.md` missing or block absent: skip (N-JSON not yet run; not applicable at this point).
+
+2.7. **V24 (AP guard orphan check — context-run enhancement safety).** Applies when `--context` was given (ec-skill/ec-both). Read `stages/N-CONSTRAINTS.md` for the anti-pattern guard table. Read `stages/N-REGISTRY.md` for the produced node registry (the target skill's node IDs after context-analysis). For each AP guard in the anti-pattern table:
+   - Extract the guard's `guarding_node` field (the node ID the guard targets).
+   - If `guarding_node` is not in the produced node registry AND not in the "inherits-from" declaration: emit advisory `"V24-advisory: AP guard <AP-ID> targets node <node_id> which is not in the produced registry — orphan guard. Verify the guard's target was renamed/restructured and update the guard's guarding_node field."` Record in `repair_targets` with key `'V24-orphan'` (advisory, non-blocking by default).
+   - Under `--strict-verify`: promote V24-orphan to HARD advisory (emit warning but do not halt — orphan guards are a documentation defect, not a runtime defect).
+   - If all AP guards have valid guarding_node fields: emit `"V24: AP guard orphan check PASS"`.
+   - If `stages/N-CONSTRAINTS.md` has no anti-pattern guard table: skip V24 (non-applicable for ec-brief runs without inherited guards).
+
+2.8. **V25 (topology label vs. edge-density consistency).** Resolve `density_observed` and `topology_class` using the following priority order:
+   1. **Primary source (C7/F-3 path):** Read `stages/N-SYNTH-GRAPH.md` frontmatter. If a `design_notes:` block is present, extract `design_notes.density_observed` and `design_notes.topology_class` from within it. (These fields are nested under `design_notes:`, not at root level — the C7 F-3 fix only writes `design_notes` when density < 3.0.)
+   2. **Fallback source (density ≥ 3.0 or design_notes absent):** Read `stages/N-JSON.md` and locate the `graph_json_content` block. Extract `metadata.node_count` and `metadata.edge_count`; compute `density_computed = edge_count / node_count`. Read `metadata.topology_class` for the label. Use these values if design_notes was not set.
+   Apply these classification checks:
+   - If `topology_class` contains "GoT" AND `density_observed < 1.5` (or `density_computed < 1.5` from fallback): emit advisory `"V25-advisory: topology_class='<X>' claims GoT semantics but density=<Y> < 1.5 floor. Consider reclassifying as 'Wave-sequential with <N> back-edges' or documenting the GoT vocabulary choice in Design Advisories."` Non-blocking (advisory only — AP-15 forbids edge-padding to meet a density floor; the label ambiguity is a documentation concern, not a correctness defect).
+   - If density ≥ 1.5 or topology_class does not contain "GoT": skip this check (not applicable).
+   - If both sources are unavailable (stages/N-SYNTH-GRAPH.md missing and stages/N-JSON.md missing): emit `"V25-skip: source files unavailable"` and skip.
+   - The check catches the label-inflation class where a sequential pipeline with minimal cross-edges self-reports as "full GoT" without a documented rationale. The C7 advisory in N-SYNTH-GRAPH covers this at graph-synthesis time; V25 provides the final residual attestation.
+
+2.9. **V26 (fusion-contract residual check — NEW v4.3 Phase 3 per spec FC-07/FC-09).** Applies only when `evolution_mode in {evolve, evolve-aggressive}`. Read `stages/N-PREFLIGHT.md` for `evolution_mode`. If `evolution_mode in {overlay, greenfield}`: skip V26 entirely (emit `"V26-skip: not in evolve mode"`).
+
+   Otherwise, run six sub-checks against the produced skill artifacts and fusion stage files:
+
+   **(a) FUSION.md emission.** When `NO_FUSION_DOC` is unset, empty, or any value other than the literal string `true`: confirm `<skill_path>/FUSION.md` exists and contains the **10 required `## ` sections** (`## fusion_sources`, `## precedence_stack`, `## delta_matrix`, `## preservation_map`, `## divergence_map`, `## inheritance_map`, `## risk_assessment`, `## fusion_decisions`, `## decomposition_tasks`, `## fusion_constraints_applied`) PLUS the YAML-style header fields (`evolution_mode`, `gotscs_version`, `timestamp`, plus `waiver_justification` when `evolution_mode == evolve-aggressive`). Missing file or any required section: add `'V26-fusion-md-missing'` to repair_targets; BLOCKING.
+
+   When `NO_FUSION_DOC=true` (literal string match): confirm FUSION.md is *absent*. Presence under suppression flag indicates the flag was ignored. Add `'V26-fusion-md-not-suppressed'` to repair_targets; BLOCKING.
+
+   **(b) REGRESSION.md emission.** Confirm `<skill_path>/REGRESSION.md` exists unconditionally in evolve mode (no suppression flag honored — regression risks must always surface). Missing: add `'V26-regression-md-missing'` to repair_targets; BLOCKING.
+
+   **(c) FC-07 functional contract preservation.** For every entry in `stages/N-FUSION-ANALYZE.md` divergence_map with `origin == "replaced"`: verify the new node's `output_ports` (read from the produced module file `<skill_path>/modules/<new_node_id>.md` frontmatter) is a SUPERSET of the original node's `output_ports` (read from `<context_path>/modules/<original_node_id>.md`), UNLESS the divergence_map row carries a `contract_override` rationale. Mismatch without override: add `'V26-fc07-violation'` to repair_targets; BLOCKING.
+
+   **Skip conditions for V26(c):**
+   - `--context` was not supplied (input_class in {ec-brief, ec-spec, ec-refeed, ec-inject}): emit `"V26-fc07-skip: no --context"`. No "replaced" entries can exist without an original to replace; trivially passes.
+   - `--context` was supplied but resolves to a `module_library` or `spec_enhancement` context type (per N-FUSION-ANALYZE step 2 classification) rather than `skill_executable`: emit `"V26-fc07-skip: --context type=<type>; no original modules/ to compare"`.
+   - `<context_path>/modules/<original_node_id>.md` is missing on disk for a divergence_map row claiming `origin == "replaced"`: emit advisory `"V26-fc07-advisory: original module file missing for <id> — fusion_plan claims replace but original not in --context"`. Treat as advisory, not blocking — the fusion_plan recorded a replace against an absent original.
+
+   **(d) FC-03 risk_acknowledgment presence.** For every entry in divergence_map with `regression_risk in {medium, high}` AND `authority == "P1 brief"`: read the canonical `## fusion_task_trace` table from `stages/N-AGG-DESIGN.md` (step 6e) and confirm the matching row's `risk_acknowledgment` column is non-empty AND not the literal string `n/a`. Per N-AGG-DESIGN step 1.5 the canonical location is fusion_task_trace exclusively — do NOT search Node List, Design Decisions, or any other section. Missing or `n/a`: add `'V26-fc03-missing-risk-ack'` to repair_targets; BLOCKING.
+
+   **(e) FC-08 regression-test coverage.** For every entry in divergence_map with `origin in {upgraded, replaced, merged, recontracted}`: search `<skill_path>/tests/run-smoke-tests.sh` for an **assertion line** referencing the new node_id. An assertion line is one that starts with `pass `, `fail `, `check `, or contains `&& pass ` / `|| fail ` AND mentions the literal node_id substring. Comments-only mentions (lines starting with `#`) and bare echo statements do NOT count.
+
+   Concrete predicate (one match satisfies the check):
+   ```
+   grep -E "^[[:space:]]*(pass |fail |check |.*&&[[:space:]]*pass |.*\\|\\|[[:space:]]*fail ).*<node_id>" <skill_path>/tests/run-smoke-tests.sh
+   ```
+   No match: add `'V26-fc08-missing-regression-test'` to repair_targets; ADVISORY (non-blocking — surfaced as TODO list in REGRESSION.md per N-EMIT step 4.4).
+
+   **(f) FC-09 waiver_justification persistence.** Applies only when `evolution_mode == 'evolve-aggressive'`. Confirm:
+   - `stages/waiver_justification.txt` exists and has length ≥50 characters (per spec §3.1 branch C).
+   - `<skill_path>/FUSION.md` (when not suppressed) contains the verbatim waiver string in its `waiver_justification:` field.
+   - `<skill_path>/graph.json` metadata contains a `waiver_justification:` field (Phase 4 wiring; advisory until then — emit `"V26-fc09-graph-meta-pending: Phase 4"`).
+   Missing waiver in FUSION.md or stages: add `'V26-fc09-waiver-missing'` to repair_targets; BLOCKING. (Skip when `evolution_mode != 'evolve-aggressive'`.)
+
+   **Aggregated emission.** Each sub-check emits one row to v_battery_results: `V26(a)`/`V26(b)`/`V26(c)`/`V26(d)`/`V26(e)`/`V26(f)`. The verdict for V26 overall is PASS iff all blocking sub-checks pass. Advisory failures (V26(e)) do not affect verdict.
 
 3. **Run H.4 four-check contract:**
    ```yaml
@@ -130,7 +193,7 @@ required_output_sections: [v_battery_results, verify_pass]
   - **V8b violation** (max_concurrent_spawns_per_run > HG-07 cap): already HARD in default mode; log for strict audit trail.
 - If `STRICT_PROCEDURAL` is unset or false: above classes remain as advisories (current graceful-degradation behavior per DD-02).
 
-4. **Determine verify_pass.** Set `verify_pass=true` if: V1, V3, V4, V5-ext, V7, V8, V9, V10, V11, V13(a,b,c,e) all PASS AND H.4 overall = PASS AND V14, V15, V16 all PASS. V2 remains advisory (non-blocking). V11 is BLOCKING per P-003. V5-ext is BLOCKING (disconnected INGEST topology). V17/V18 required when validation_mode was true. V19 required when --context was given. When `verify_pass=false` AND `'V11' in repair_targets` AND `retry_count_artifact < 1`: back-edge E41 (N-VERIFY→N-SKILL-RENDER) fires in addition to E27 — N-SKILL-RENDER re-renders SKILL.md before N-MODULES re-runs.
+4. **Determine verify_pass.** Set `verify_pass=true` if: V1, V3, V4, V5-ext, V7, V8, V9, V10, V11, V13(a,b,c,e) all PASS AND H.4 overall = PASS AND V14, V15, V16 all PASS AND V26(a/b/c/d/f) all PASS when `evolution_mode in {evolve, evolve-aggressive}`. V2 remains advisory (non-blocking). V11 is BLOCKING per P-003. V5-ext is BLOCKING (disconnected INGEST topology). V17/V18 required when validation_mode was true. V19 required when --context was given. **V26 (NEW v4.3 Phase 3): sub-checks (a)/(b)/(c)/(d)/(f) are BLOCKING when applicable; (e) is advisory.** When `verify_pass=false` AND `'V11' in repair_targets` AND `retry_count_artifact < 1`: back-edge E41 (N-VERIFY→N-SKILL-RENDER) fires in addition to E27 — N-SKILL-RENDER re-renders SKILL.md before N-MODULES re-runs. When `verify_pass=false` AND any `'V26-*'` is in repair_targets AND `retry_count_artifact < 1`: re-fire N-EMIT only (the V26 failures are emit-time concerns; no need to re-render SKILL.md or re-decompose modules).
 
 **E50/E51 routing (v4 DD-06):** These back-edges route to N-AGG-DESIGN for design-level failures caught during N-VERIFY's attestation of upstream stage files:
 - If V13(d) anomalies are detected in `stages/N-REGISTRY.md` (node/edge ID mismatch that N-REGISTRY step 0.5 should have caught): add `'registry_v13d_fail'` to repair_targets → triggers E50 (N-VERIFY→N-AGG-DESIGN).

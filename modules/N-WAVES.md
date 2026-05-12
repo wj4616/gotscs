@@ -33,9 +33,11 @@ required_output_sections: [wave_plan_table, mode_matrix_table]
 0. **Read briefing-core.md (and the appendices declared in the per-node read-map below).**
    <!-- DD-03 read-map for N-WAVES: briefing-core only. No appendices required. -->
 
+0.5. **Read cap tier (I-01).** Read `stages/cap_tier.md`. Extract `max_waves`. If missing: fall back to 15 and log advisory.
+
 1. **Read design_blueprint** from `stages/N-DESIGN-GATE.md` (the passthrough section appended by N-DESIGN-GATE step 5b — the blueprint is forwarded unchanged after gate evaluation; the gate_pass field at the top of N-DESIGN-GATE.md is the gate verdict, the design_blueprint passthrough section below is the data payload). Extract node list with wave assignments.
 
-2. **Generate Section 4 — Wave Plan table.** Cap at ≤10 Waves. Columns:
+2. **Generate Section 4 — Wave Plan table.** Cap at ≤cap_tier.max_waves Waves. Columns:
    `Wave # | Nodes | type (fan-out/aggregation/sequential) | spawn budget | cumulative spawn budget | wall-clock target | failure_grace | attention-reset Read inserted? | depends-on Wave`
 
    Rules:

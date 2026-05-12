@@ -14,6 +14,10 @@ input_ports:
     format: markdown
     signal_field: preflight_status
     required: true
+  - port: evolution_mode
+    format: signal
+    signal_field: evolution_mode
+    required: true
   - port: --context
     format: filesystem-path
     required: false
@@ -27,7 +31,13 @@ output_ports:
   - port: validation_mode
     format: markdown
     signal_field: validation_mode
-raises_signals: [context_inventory, validation_mode]
+  - port: context_advisory
+    format: markdown
+    signal_field: context_advisory
+  - port: redesign_candidates
+    format: markdown
+    signal_field: redesign_candidates
+raises_signals: [context_inventory, validation_mode, context_advisory, redesign_candidates]
 required_output_sections: [context_inventory, classification_table, validation_mode_flag]
 ---
 
@@ -50,7 +60,12 @@ required_output_sections: [context_inventory, classification_table, validation_m
 0. **Read briefing-core.md (and the appendices declared in the per-node read-map below).**
    <!-- DD-03 read-map for N-CONTEXT-ANALYZE: briefing-core only. No appendices required. -->
 
-1. **Determine input class from preflight_result.** Read `stages/N-PREFLIGHT.md`. Extract `input_class`. This node fires only when `input_class in {ec-skill, ec-spec, ec-both}` (HC-19 conditional gate).
+1. **Determine input class from preflight_result.** Read `stages/N-PREFLIGHT.md`. Extract `input_class` AND `evolution_mode` (NEW v4.3). This node fires only when `input_class in {ec-skill, ec-spec, ec-both}` (HC-19 conditional gate).
+
+   **Mode branch declaration (NEW v4.3 — spec §3.5).** Capture `evolution_mode` for use in step 3:
+   - `overlay` (single-context default, OR `--strict` was set): emit the legacy `preservation_contract` exactly as v4.2.0 did. All INVENTORY items, nodes, edges, and aggregation carriers from the original skill are mandatory preservation targets. AP-15 (no-replacement-without-defect) applies in full force. This branch is byte-identical to v4.2.0 behavior — required for backward compatibility (HC-10).
+   - `evolve` or `evolve-aggressive` (NEW): emit `context_advisory[]` (recommendations, not mandates) AND `redesign_candidates[]` (items the brief flags for redesign) INSTEAD of the blanket preservation_contract. Hand off to N-FUSION-ANALYZE (Wave-2) which performs the holistic synthesis and emits the unified `fusion_plan`. AP-15 still applies but is interpreted by the precedence stack: brief authority can override AP-15 by demanding redesign, with the cost of a populated `divergence_map` entry and `regression_risk` annotation.
+   - `greenfield`: this node MUST NOT have fired (no context flags); reaching this branch with `greenfield` is a contract violation. HALT with `halt-on-mode-classification-mismatch`.
 
 1.5. **v19_context_inventory_check (V19 pre-shifted from N-VERIFY per DD-04).** When `--context` is given: ensure that every node identified during the inventory pass receives a `context_source` field in {preserved, upgraded, replaced, new} and a one-sentence `context_rationale` BEFORE step 3 emits the inventory. Append both fields to each row of the classification table. This early shift means N-VERIFY only performs a residual completeness check (no per-node generation). If any node lacks either field after step 2 below: HALT with `halt-on-missing-context-source` listing the offenders.
 
@@ -114,6 +129,39 @@ required_output_sections: [context_inventory, classification_table, validation_m
    - Write `stages/N-CONTEXT-ANALYZE.md` containing the `context_inventory` block including `pipeline_class`.
    - When validation_mode is fired (ec-spec / ec-both), additionally write `stages/validation-mode.md` with a single line `validation_mode: true`.
    - Emit signals `context_inventory` and (when applicable) `validation_mode`.
+
+3.5. **Mode-dependent emission (NEW v4.3 — spec §3.5).** After the standard outputs are persisted in step 3, branch on `evolution_mode`:
+
+   **Branch: `overlay` (and `greenfield` already halted upstream).** Emit a `## preservation_contract` section in `stages/N-CONTEXT-ANALYZE.md` containing the v4.2.0 hard-preservation rules. Each row is a HC-, AP-, or INV- identifier with a one-line "thou shalt not change" rationale. This is the legacy authoritative output. No further action.
+
+   **Branch: `evolve` or `evolve-aggressive`.** REPLACE the `preservation_contract` section with TWO new sections:
+
+   ```markdown
+   ## context_advisory
+   <table of recommended-but-not-mandatory preservation items derived from the original skill's HC-, AP-, and INV- corpus. Schema:
+     | advisory_id (AD-NN) | source (HC-/AP-/INV-) | recommendation | rationale | risk_of_changing | overrideable_by |
+   The `overrideable_by` field MUST be `brief` for default items, `none` for items that constitute the external contract (FC-04: invocation signature, output schema, universal hard constraints).>
+
+   ## redesign_candidates
+   <list of items the brief explicitly flags for redesign. Each entry follows spec §3.5 example:
+     {
+       "candidate_id": "RC-NN",
+       "item": "<node | edge | INVENTORY-id>",
+       "reason_brief_demands_it": "<verbatim brief substring>",
+       "risk_of_changing": "low | medium | high",
+       "interacts_with": [<other items that would need to co-evolve>]
+     }
+   Empty list `[]` is valid (brief did not demand redesign of anything specific).>
+   ```
+
+   Write a separate stage file `stages/context-advisory.md` containing both sections (so N-FUSION-ANALYZE has a single canonical location to read the recommendation corpus). Set signals `context_advisory=present`, `redesign_candidates=present`.
+
+   **Brief-scan algorithm for redesign_candidates.** For each item in the original skill's INVENTORY / node list / edge list, scan the brief for substrings matching:
+   - "redesign <item>" / "redesigned <item>" / "redesign the <item>" — direct redesign demand.
+   - "<item> ... should ... <verb-of-change>" where verb-of-change ∈ {evolve, change, replace, merge, drop, generalize, ultimate, optimize, future-proof, rewrite}.
+   - Generic optimization demands ("ultimate optimized version", "best possible", "rewrite from scratch") flag ALL items as candidates with `reason_brief_demands_it` = the matching brief substring.
+
+   When the generic-optimization match fires, the resulting `redesign_candidates[]` may be large. Truncate to the top 10 items by frequency-of-mention in original skill artifacts (most-referenced items most likely to drive design); record `redesign_candidates_truncated: true` with the full list count. N-FUSION-ANALYZE reads the full list from disk if needed.
 
 4. **Wave 2 barrier dependency (AP-14, enforced by orchestrator at SKILL.md STEP 2).** This node's stage file MUST exist before Wave 3 dispatches. The orchestrator is responsible for the barrier — this Protocol step is a contract reminder, not an enforcement mechanism. The module itself completes when its writes succeed; the orchestrator's Wave-2 → Wave-3 transition is what blocks until both `stages/N-CONTEXT-ANALYZE.md` (and optionally `stages/validation-mode.md`) exist.
 

@@ -95,9 +95,16 @@ required_output_sections: [modules_manifest, emission_format]
 
    ## Protocol
 
-   0. **Load schema vocabulary.** Read briefing-core.md. This makes H.1–H.9 node type taxonomy, hat definitions, and signal field conventions available for all subsequent steps in this module.
+   <!--
+     v4.2 RENDERING RULE (DD-11): Produced modules MUST NOT carry a "Read briefing-core.md"
+     preamble. That instruction was a build-time artifact copy-pasted from GOTSCS's own
+     modules. The produced skill is portable: it does NOT depend on GOTSCS being installed.
+     Runtime conventions (halt-condition naming, signal-field names, named anti-patterns)
+     are inlined into the produced SKILL.md §8 RUNTIME CONVENTIONS. Module step 1 is the
+     first node-specific instruction.
+   -->
 
-   <numbered steps specific to this node's cognitive role>
+   <numbered steps specific to this node's cognitive role; minimum 4 steps>
 
    ## Scale gates
    - tokens: <N>

@@ -92,6 +92,7 @@ When `--review-gates` is set, after writing the spec, the orchestrator pauses an
    wave_count: <total_waves from graph_spec metadata>
    input_type: <input_shape>
    output_type: <output_shape>
+   base_skill_version: <version from --context skill's frontmatter, or omit for ec-brief runs>
    ---
 
    # <Skill Name> — Skill Specification
@@ -111,6 +112,7 @@ When `--review-gates` is set, after writing the spec, the orchestrator pauses an
 
    ## Hard Constraints
    <Bulleted list of inventory_items verbatim from constraints_digest. These MUST appear verbatim in any implementation's Hard Gates.>
+   <Enhancement-run sub-section rule: when --context or --context-spec was supplied (ec-skill / ec-spec / ec-both runs), split the bulleted list into two sub-sections: "### Inherited Constraints (from base skill, items 1–N)" and "### New Constraints (from enhancement brief, items N+1–M)". Include a one-line count summary: "Total: M items (N inherited + K new)". This allows implementers to immediately identify which constraints need forward-validation (new) vs. backward-regression checks (inherited). If all constraints are new (ec-brief run with no base skill): emit as a single flat list — no sub-sections required.>
 
    ## Pipeline Architecture
    **Topology:** <topology_class> | **Waves:** <N> | **Nodes:** <N>
@@ -126,22 +128,36 @@ When `--review-gates` is set, after writing the spec, the orchestrator pauses an
 
    ## Aggregation Architecture
    <For each aggregation node: name, mid-graph vs. final, incoming branches, synthesis strategy, why that strategy suits.>
+   <Branch-count quality gate: for every node labeled as an aggregation node, verify incoming_branch_count ≥ 2. If any aggregation node has exactly 1 incoming branch (pass-through labeled as aggregation): either (a) remove the AGGREGATION label and reclassify as a TRANSFORMER/FORMATTER, or (b) document explicitly why a single-branch node requires aggregation semantics (rare; requires written justification). Emit a warning in the Aggregation Architecture section for any single-branch AGG node that was retained after review.>
 
    ## Wave Plan
    <Simplified wave plan table. Columns: Wave | Nodes | Type | Brief description.>
 
    ## Per-Wave Token Cost
    <F-2 fix: Pull token_budget values from stages/N-REGISTRY.md (read in step 1), NOT from N-WAVES ESTIMATED figures. N-REGISTRY is the authoritative source and is always available before N-SPEC-ARTIFACT runs. For each wave, sum the token_budget values from N-REGISTRY for each node in that wave. Do NOT label these as ESTIMATED. If N-REGISTRY was unavailable (fallback case): label the column "ESTIMATED" and add a footnote "Source: N-WAVES estimates — N-REGISTRY unavailable. Reconcile with graph.json scale_gates before implementation.">
+   <Conditional-node handling: for any node with mode_gate (e.g., a PDF renderer that only fires when --pdf is set, or a behavioral tester that fires only under --behavioral-test), show TWO budget rows for the wave: one for the "flag absent" path (shows 0 for the conditional node) and one for the "flag present" path (shows the node's token_budget). Example: "Wave 7 (markdown-only): 18,000 | Wave 7 (--pdf): 20,000 (+2,000 for N-PDF-GENERATOR)". This prevents the F-2.1 class where the budget table overstates cost for users who do not use the conditional flag.>
    Table: Wave | Nodes | Per-node budgets (tokens) | Wave total | Notes
 
    ## Design Decisions
    <Required output section per DD-11. List of design choices with one-sentence rationale. When --context is set, include preserved/upgraded/replaced classification per node. When --context is absent, document the design choices made by N-AGG-DESIGN (TRIZ resolutions, EC8 prunings, contradiction resolutions). Format: DD-id | description | rationale | source-node.>
+   <Source-node accuracy requirement: decisions originating at N-CONTEXT-ANALYZE (upgrade/replace classifications, context-inventory reasoning) MUST be attributed to N-CONTEXT-ANALYZE, not N-AGG-DESIGN. Decisions originating at Wave-3 analyzers (N-TOPOLOGY, N-DECOMPOSE, N-CONSTRAINTS) MUST cite the correct source-node. N-AGG-DESIGN is the source only for decisions it synthesized (TRIZ resolutions, EC8 prunings, contradiction resolutions, ADV-* advisory decisions).>
+   <Decomposition evaluation traceability: when the brief offered optional decompositions that were evaluated and rejected (per AP-15 invariant), each rejected decomposition MUST appear as a DD entry: DD-id="ADV-N-REJECT", description="<decomposition candidate>", rationale="AP-15: evaluated defect criteria <list> — none met", source-node="N-DECOMPOSE". This prevents a future implementer from re-raising the question without knowing it was already evaluated. Include the specific AP-15 defect-check criteria used (e.g., fan-in≤2, token_budget≤30K, single API surface) so the criteria are reproducible.>
 
    ## Failure Modes
-   <Failure modes table from graph_spec.>
+   <Failure modes table from graph_spec. Use the table format: Failure | Trigger | Behavior.>
+   <Mandatory coverage per N-SPEC-ARTIFACT quality rules:>
+   <(a) Every back-edge in the pipeline must have an entry: "Back-edge <E-ID> (<source> → <target>): triggered when <condition>; behavior: <retry-cap> retry; rework includes <which downstream nodes re-run>." If the back-edge interacts with mode-conditional nodes (e.g., a PDF renderer that only fires under --pdf), state explicitly whether the rework cycle re-invokes those conditional nodes from the corrected output.>
+   <(b) Every optional cross-wave edge (e.g., a node that emits a sub-output for a node in an earlier wave) must have a fallback entry: "Cross-wave edge <E-ID> (<source> → <target>) sub-output unavailable: <downstream-node> proceeds without it; behavior = <skip / degraded / partial>."  State that the target node must not HALT on absence of an optional cross-wave input.>
+   <(c) For every new node that introduces an external system dependency (e.g., a PDF renderer, a network crawler, a database), add entries covering: (i) dependency not installed, (ii) dependency installed but fails at runtime, (iii) graceful fallback vs. HALT decision for each.>
+   <(d) For every new output-format section added to a skill enhancement, add an entry: "New section <X> absent from output: <trigger> — <behavior, e.g., N-VERIFIER flags in verify_result>.">
 
    ## Implementation Notes
    <Estimated effort, key complexity points, references to /writing-plans and /gotscs --skill.>
+   <Mandatory sub-sections:>
+   <(a) **Phase dependency graph.** If the implementation plan has ≥2 phases, state which phases depend on others completing before they start. Example: "Phase 2 (PDF Generation) depends on Phase 1 (Output Format) completing — do not attempt parallel implementation.">
+   <(b) **System-level dependencies.** For every new external dependency introduced by this skill: package name, minimum version, installation command, and any system-level prerequisites (e.g., "WeasyPrint ≥60.0 requires system libraries Cairo and Pango; install with `pip install weasyprint` after system-level prereqs"). If no new external dependencies are introduced: emit "No new system-level dependencies beyond the existing skill stack.">
+   <(c) **Regression test checkpoints.** For skill enhancements (--context or --context-spec runs): state the specific criteria for verifying that the base skill's existing behavior is preserved. Example: "Run test suite from v1.0.0 against v1.1.0 markdown-only path; golden-output byte-comparison for all 5 EC test fixtures. New --pdf path is purely additive and does not affect the byte-identical contract.">
+   <(d) **V-check coverage for new sections.** For every new output section added by this enhancement, state which V-check (existing or new) covers its presence and correctness. Example: "V-NEW-1: verify Section X is present and non-empty; V-NEW-2: verify Section X adheres to the required schema." If no new V-checks are needed, state why the existing battery covers the new sections.>
 
    <F-1/F-6 fix: if brief_quality_advisory == "fragment_detected" (from N-NORMALIZE step 5): add a paragraph before the key complexity points:>
    > ⚠️ **Brief Quality Advisory:** The input brief contained a grammatical fragment. One or more INVENTORY items (marked `[INFERRED from fragment]` in the Hard Constraints section) were inferred from incomplete phrases. Verify these constraints against the original brief's intent before beginning implementation.
@@ -198,6 +214,14 @@ When `--review-gates` is set, after writing the spec, the orchestrator pauses an
    `<role>`, `<context>`, `<task>`, `<constraints>`.
    - If any missing: insert a minimal well-formed placeholder for the absent tag.
      Set `standalone_prompt_repaired: true` in rendered frontmatter.
+
+   **(d) Enhancement-run mandatory sub-section completeness.** Applies only when `--context` or `--context-spec` was supplied (ec-skill / ec-spec / ec-both). Scan the rendered document for sub-headings (lines beginning `##` or `###`) within the `## Implementation Notes` section. Required sub-headings:
+   - "System-level dependencies" (or "System dependencies")
+   - "Regression test" (or "Regression checkpoints")
+   - "V-check coverage" (or "V-check")
+   For any required sub-heading that is absent: insert a placeholder immediately before the next top-level `##` section (or at the end of Implementation Notes if it is the last section):
+   `### <Required Sub-section Name>\n> [mandatory sub-section — populate before use]`
+   Set `spec_sections_repaired: true` in rendered frontmatter. When MODE is ec-brief (no `--context` / `--context-spec`): skip check (d).
 
 4. **Dual-write contract (per F011 fix).**
    - Write the rendered document to `stages/N-SPEC-ARTIFACT.md` (intermediate stage file for HC-21 edge-coverage compliance).

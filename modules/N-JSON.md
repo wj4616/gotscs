@@ -87,6 +87,14 @@ metadata["max_concurrent_spawns_per_run"] = _compute_max_concurrent_spawns(nodes
 
 Implement `_compute_max_concurrent_spawns`: for each mode, spawn-active nodes = nodes where `exec_type=spawn` AND (`mode_gate` field absent OR mode appears in mode_gate). Take max over modes. If `mode_gate` fields are not present (produced skill has no mode-conditional nodes), `max_concurrent_spawns_per_run` = `spawn_node_count`.
 
+   **Cap metadata emission (F-002 fix).** Read `stages/cap_tier.md`. Emit the three cap fields into metadata so produced skills declare their own cap posture:
+   ```python
+   metadata["produced_skill_edge_cap_normal"]    = 100
+   metadata["produced_skill_edge_cap_aggressive"] = 120
+   metadata["produced_skill_edge_cap_complex"]  = 150
+   ```
+   These are unconditional constants (the cap values themselves don't change per skill; only the authorization to use them changes via `--complex` / `--evolve-aggressive`). If `stages/cap_tier.md` is unreadable: emit the fields anyway with these canonical values, and log advisory `"cap_tier_missing: using canonical defaults"`.
+
 **HG-07 cap check uses `max_concurrent_spawns_per_run`** (not `spawn_node_count`). Brief-claimed `static_spawns` is compared advisory-only against both fields; differences are logged to `audit_log` but do not halt.
 
 Author-claimed values for all fields are advisory inputs only; the serializer always overwrites them with computed values. If author-claimed and computed disagree, log the override as `"metadata_recomputed": {"field": ..., "claimed": X, "computed": Y}` in a top-level `audit_log` array. This eliminates the F-2.2 drift class.
@@ -187,13 +195,14 @@ The generated schema MUST be a JSON Schema draft-07 document with the union enum
    - Every edge `source` and `target` references a valid node_id (or `skill_concept_brief` for E1)
    - `metadata.determinism_class` is one of `deterministic|seeded|non-deterministic`
 
-4. **Serialize hats.json.** Produce hats.json as a **JSON array** (not a dict keyed by hat_id). Map every hat used by a node in the registry. Required output format:
+4. **Serialize hats.json.** Produce hats.json as a **JSON array of hat entries** (NOT a dict keyed by hat_id, NOT a dict-with-`hats`-key wrapper, NOT a tuple of {default_models, hats}). Every reachable consumer (V23, smoke G-13/2, N-EMIT format-guard) iterates over the top-level array. Map every hat used by a node in the registry. Required output format:
    ```json
    [
      {
        "hat_id": "gate",
        "description": "Guards entry into the pipeline; halts on brief quality failures",
        "tier": "model-small",
+       "model": "claude-haiku-4-5-20251001",
        "fallback_tier": "model-medium",
        "downshiftable": true,
        "downshift_threshold": 0.20,
@@ -204,7 +213,17 @@ The generated schema MUST be a JSON Schema draft-07 document with the union enum
      }
    ]
    ```
-   Note: the field is `fallback_tier` (not `fallback`). Include `downshift_threshold` only on entries where `downshiftable: true`. GOTSCS's own `hats.json` uses a legacy dict format — do NOT copy that format; the produced skill's `hats.json` MUST be array format per step 1.5(e).
+   - The field is `fallback_tier` (not `fallback`).
+   - Include `downshift_threshold` only on entries where `downshiftable: true`.
+   - **`model` field (H2 fix — eliminates orphan hats-meta.json sidecar).** Each hat entry MUST include a `model` field naming the concrete model_id resolved from the `tier`. This inlines what was previously a separate `default_models` dict at the top level. Resolution table (canonical for v4.3+):
+     | tier | model |
+     |---|---|
+     | `model-small` | `claude-haiku-4-5-20251001` |
+     | `model-medium` | `claude-sonnet-4-6` |
+     | `model-large` | `claude-opus-4-7` |
+     | `no-llm` | `null` |
+   - Do NOT emit a top-level `default_models` dict, and do NOT wrap the array in a parent dict (`{"hats": [...]}`). N-EMIT format-guard at step 4 will HALT with `halt-on-hats-format-fail` and route to N-JSON via E59 if the structure is not a top-level array.
+   - GOTSCS's own `hats.json` uses a legacy dict format — do NOT copy that format; the produced skill's `hats.json` MUST be the array-with-inlined-model format per this step.
 
 5. **Write output** to `stages/N-JSON.md` containing both JSON blocks (as triple-backtick json code blocks). Emit signal: `json_result`.
 

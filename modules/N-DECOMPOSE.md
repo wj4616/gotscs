@@ -10,12 +10,23 @@ input_ports:
     format: markdown
     signal_field: normalize_digest
     required: true
+  - port: evolution_mode
+    format: signal
+    signal_field: evolution_mode
+    required: true
+  - port: fusion_plan
+    format: markdown
+    signal_field: fusion_plan
+    required: false
 output_ports:
   - port: decompose_result
     format: markdown
     signal_field: decompose_digest
+  - port: decomposition_tasks
+    format: markdown
+    signal_field: decomposition_tasks
 raises_signals: [decompose_digest]
-raises_signals_conditional: [conflict_signals]  # emitted only when validation_mode=true (ec-spec/ec-both)
+raises_signals_conditional: [conflict_signals, decomposition_tasks]
 required_output_sections: [node_types, branching_points, aggregation_points, decompose_digest]
 ---
 
@@ -82,6 +93,76 @@ required_output_sections: [node_types, branching_points, aggregation_points, dec
    mid_graph_aggregations: <N>   # must be ≥1
    ```
    Emit signal: `decompose_digest`. When `validation_mode=true`, also emit `conflict_signals` array in the output.
+
+6. **Mode-dependent task decomposition (NEW v4.3 — spec §3.6).** Read `evolution_mode` from `stages/N-PREFLIGHT.md`. Branch:
+
+   **`overlay` and `greenfield` modes:** terminate after step 5. Legacy decompose_digest IS the authoritative output. This branch is byte-identical to v4.2.0.
+
+   **`evolve` and `evolve-aggressive` modes:** read `stages/N-FUSION-ANALYZE.md` (must exist; HALT with `halt-fusion-prereq-missing` if absent). Read its `unified_topology`, `preservation_map`, `divergence_map`, and `inheritance_map` sections.
+
+   For every node / edge / aggregation carrier in the `unified_topology`, derive ONE task from the closed-vocab 8-category taxonomy:
+
+   | Category | Source signal in fusion_plan | Description |
+   |---|---|---|
+   | `preserve` | `preservation_map` entry; origin="preserved" | Keep original node/edge/INVENTORY item byte-identical. No code change required; verify byte-equality at V-battery. |
+   | `upgrade` | `divergence_map` entry; origin="upgraded"; node_id preserved | Modify existing node in place — preserve node_id, port contracts, hat/tier, but change Protocol or scale_gates. |
+   | `replace` | `divergence_map` entry; origin="replaced"; node_id changes | Drop original node; implement new design with same external contract (FC-07). regression_risk MUST be set. |
+   | `merge` | `divergence_map` entry; origin="merged"; multiple original ids → one new id | Combine multiple original nodes into a single superior node. Preserve union of external contracts. |
+   | `add` | `divergence_map` entry; origin="added"; not in original | Net-new node from spec or brief. No predecessor; pure addition. |
+   | `remove` | `divergence_map` entry; origin="removed"; in original but not unified_topology | Drop original node. regression_risk MUST be set. Downstream consumers of the dropped node must already be re-routed in unified_topology. |
+   | `resequence` | `divergence_map` entry; origin="resequenced"; same node_id, different wave | Move node to a different wave without changing its Protocol. May require edge gate updates. |
+   | `recontract` | `divergence_map` entry; origin="recontracted"; same node_id, changed aggregation_policy / join_policy / port contract | Change the aggregation contract or port shape without renaming. Most fragile category — V-battery flags any recontract that breaks adjacency. |
+
+   For each derived task, emit one row of `decomposition_tasks[]`:
+   ```json
+   {
+     "task_id": "DT-<NN>",
+     "category": "preserve | upgrade | replace | merge | add | remove | resequence | recontract",
+     "target_item_id": "<node_id | edge_id | INVENTORY-id>",
+     "origin_node_ids": ["<original_id>", ...],   // [] for category=add; [<id>] for most; [<id1>,<id2>] for merge
+     "authority": "P1 brief | P2 spec | P3 original | P4 default",
+     "rationale_excerpt": "<≤200-char excerpt from fusion_plan divergence_rationale>",
+     "regression_risk": "low | medium | high",  // required for category in {replace, remove, recontract}; null otherwise
+     "external_contract_locked": <bool>,  // true if FC-04 forced preserve despite brief silence
+     "wave_target": <int>  // resolved wave number from unified_topology
+   }
+   ```
+
+   **Atomicity rule.** Every concrete item in `unified_topology` that maps to a graph element MUST yield exactly one task; no item may be missing, duplicated, or fall outside the 8 categories. Define the countable target precisely:
+   ```
+   countable_topology = unified_topology.nodes_proposed
+                      ∪ unified_topology.edges_proposed
+                      ∪ unified_topology.aggregation_carriers_proposed
+   ```
+   `waves_proposed` (numeric wave indices) and `inventory_proposed` (HC/AP/INV identifiers) are NOT individually decomposed into DT-NN tasks — they are by-products of node-level resequence and recontract decisions, and tracked in fusion_plan.preservation_map / divergence_map directly.
+
+   Compute the count assertion against `countable_topology`:
+   ```
+   |preserve| + |upgrade| + |replace| + |merge| + |add| + |remove| + |resequence| + |recontract|
+       == |countable_topology|
+   ```
+   For `merge` tasks: the task counts as 1 row but its `origin_node_ids` lists multiple originals; the originals are NOT separately tasked (they're absorbed into the merge). So the LHS counts merged-into-one as 1, and the RHS counts the new merged item as 1 (the originals don't appear in countable_topology unless retained as separate items).
+
+   If not equal: HALT with `halt-decompose-task-arithmetic-fail` listing the discrepancy (which countable_topology items are unaccounted for OR over-counted).
+
+   Append to `stages/N-DECOMPOSE.md` two additional sections:
+   ```markdown
+   ## decomposition_tasks
+   <numbered table of DT-NN rows per the schema above>
+
+   ## task_category_summary
+   preserve: <N>
+   upgrade: <N>
+   replace: <N>
+   merge: <N>
+   add: <N>
+   remove: <N>
+   resequence: <N>
+   recontract: <N>
+   total: <sum, must equal |unified_topology|>
+   ```
+
+   Emit signal `decomposition_tasks=present`. The legacy `decompose_digest` is still emitted (overlay-mode parity).
 
 ## Scale gates
 - tokens: 4000

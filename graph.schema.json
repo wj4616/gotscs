@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "GOTSCS v4 graph.json schema",
+  "title": "GOTSCS v4.4 graph.json schema (caps raised to 40/20/150 for --complex; produced-skills schema bootstrap updated)",
   "type": "object",
   "required": ["metadata", "nodes", "edges"],
   "properties": {
@@ -11,9 +11,9 @@
         "skill_name": {"type": "string"},
         "version": {"type": "string"},
         "determinism_class": {"enum": ["deterministic", "seeded", "non-deterministic"]},
-        "total_waves": {"type": "integer", "maximum": 10},
-        "total_nodes": {"type": "integer", "maximum": 20},
-        "total_edges": {"type": "integer", "maximum": 60}
+        "total_waves": {"type": "integer", "maximum": 20},
+        "total_nodes": {"type": "integer", "maximum": 40},
+        "total_edges": {"type": "integer", "maximum": 150}
       }
     },
     "nodes": {

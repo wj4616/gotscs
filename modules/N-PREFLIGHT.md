@@ -13,8 +13,8 @@ output_ports:
   - port: preflight_result
     format: markdown
     signal_field: preflight_status
-raises_signals: [preflight_status, input_class]
-required_output_sections: [input_class, preflight_status]
+raises_signals: [preflight_status, input_class, evolution_mode, contexts_provided_count]
+required_output_sections: [input_class, preflight_status, evolution_mode]
 ---
 
 ## INPUT ports
@@ -90,6 +90,92 @@ required_output_sections: [input_class, preflight_status]
    - `ec-refeed`: input begins with `---` YAML frontmatter and `## Section` headings (was v1's ec15)
    - `ec-brief`: free-text brief, no context flag (default; absorbs v1's ec2/ec3/ec4/ec10 — handled at N-NORMALIZE)
 
+4a. **Evolution mode detection (NEW v4.3 — spec §3.1).** Determine `evolution_mode` from context count + flag presence. The orchestrator (SKILL.md STEP 0.1) sets these env vars:
+   - `STRICT_FLAG=true` if `--strict` was supplied
+   - `EVOLVE_FLAG=true` if `--evolve` was supplied
+   - `EVOLVE_AGGRESSIVE_FLAG=true` if `--evolve-aggressive` was supplied
+   - `WAIVER_JUSTIFICATION=<string>` if `--waiver-justification "<text>"` was supplied
+
+   Compute `contexts_provided_count`:
+   ```
+   contexts_provided_count = 0
+   if CONTEXT_PATH is set:        contexts_provided_count += 1
+   if CONTEXT_SPEC_PATH is set:   contexts_provided_count += 1
+   ```
+
+   Resolve `evolution_mode` per the precedence ladder (first match wins):
+
+   | Branch | Condition | Resulting `evolution_mode` |
+   |---|---|---|
+   | A | `contexts_provided_count == 0` | `greenfield` |
+   | B | `COMPLEX_FLAG && (EVOLVE_FLAG || EVOLVE_AGGRESSIVE_FLAG)` | REFUSE — flag conflict |
+   | C | `STRICT_FLAG && (EVOLVE_FLAG || EVOLVE_AGGRESSIVE_FLAG)` | REFUSE — flag conflict |
+   | D | `EVOLVE_AGGRESSIVE_FLAG && WAIVER_JUSTIFICATION absent or len < 50` | REFUSE — waiver missing |
+   | E | `EVOLVE_AGGRESSIVE_FLAG` | `evolve-aggressive` |
+   | F | `EVOLVE_FLAG` | `evolve` |
+   | G | `COMPLEX_FLAG && contexts_provided_count == 0` | `greenfield` + `complex_mode=true` |
+   | H | `COMPLEX_FLAG && contexts_provided_count >= 1` | `overlay` + `complex_mode=true` |
+   | I | `STRICT_FLAG` | `overlay` |
+   | J | `contexts_provided_count == 1` (no mode flag) | `overlay` (single-context default — backward compat) |
+   | K | `contexts_provided_count >= 2` (no mode flag) | `evolve` (NEW v4.3 multi-context default) |
+
+   **Branch B refusal (NEW v4.4 — COMPLEX conflict):**
+   ```
+   # GOTSCS — refused
+   conflicting mode flags
+
+   ## Reason
+   `--complex` cannot combine with `--evolve` or `--evolve-aggressive`. `--complex` raises topology caps without fusion; `--evolve*` enables fusion.
+
+   ## Remediation
+   Re-invoke with at most one of `--complex`, `--evolve`, `--evolve-aggressive`.
+   ```
+   Set `preflight_status=refuse`, `input_class=halt-flag-conflict`. Stop.
+
+   **Branch C refusal (was Branch B):**
+   ```
+   # GOTSCS — refused
+   conflicting mode flags
+
+   ## Reason
+   `--strict` and `--evolve` (or `--evolve-aggressive`) are mutually exclusive. `--strict` forces preservation overlay; `--evolve*` forces context fusion.
+
+   ## Remediation
+   Re-invoke with at most one of `--strict`, `--evolve`, `--evolve-aggressive`.
+   ```
+   Set `preflight_status=refuse`, `input_class=halt-flag-conflict`. Stop.
+
+   **Branch D refusal (was Branch C):**
+   ```
+   # GOTSCS — refused
+   --evolve-aggressive requires waiver justification
+
+   ## Reason
+   The `--evolve-aggressive` flag relaxes HC-02 topology caps (≤36/≤18/≤120) and requires an explicit `--waiver-justification "<text ≥50 chars>"` explaining why standard caps cannot accommodate the design.
+
+   ## Remediation
+   Re-invoke with `--waiver-justification "<≥50 character explanation>"` or use `--evolve` alone (standard caps).
+   ```
+   Set `preflight_status=refuse`, `input_class=halt-aggressive-no-waiver`. Stop.
+
+   **Validate against input class.** When `input_class == 'ec-brief'` AND `evolution_mode != 'greenfield'`: this should be impossible (no context flag → contexts_provided_count == 0 → branch A). If reached, HALT with `halt-on-mode-classification-mismatch`.
+
+   When `input_class == 'ec-refeed'`: `evolution_mode = 'overlay'` regardless of flags (re-feed has no context input that fusion can act on).
+
+   **Persist waiver justification (FC-09).** When `evolution_mode == 'evolve-aggressive'`: write `WAIVER_JUSTIFICATION` to `stages/waiver_justification.txt`. Downstream nodes (N-FUSION-ANALYZE, N-VERIFY) read this file and embed the justification in `FUSION.md` and `graph.json` metadata.
+
+   **Persist complex_mode (NEW v4.4).** When `COMPLEX_FLAG` is set: write `COMPLEX_FLAG` value (`true`) to `stages/complex_mode.txt`. Downstream nodes (N-CONSTRAINTS, N-AGG-DESIGN, N-VERIFY, N-EMIT) read this file to apply relaxed caps.
+
+   **Emit consolidated cap tier (I-01).** After resolving `evolution_mode` and `complex_mode`, write `stages/cap_tier.md` with the canonical cap table for this run:
+   ```yaml
+   ## cap_tier
+   tier: <standard | aggressive | complex>
+   max_nodes: <30 | 36 | 40>
+   max_waves: <15 | 18 | 20>
+   max_edges: <100 | 120 | 150>
+   ```
+   Resolution: standard when `evolution_mode in {greenfield, overlay, evolve}` AND `complex_mode != true`; aggressive when `evolution_mode == 'evolve-aggressive'`; complex when `complex_mode == true`. Downstream nodes MUST read `stages/cap_tier.md` at protocol start and use the declared caps. This centralizes cap resolution so future changes touch only N-PREFLIGHT.
+
 4.5. **Short-brief advisory check (non-blocking).** Estimate input length in tokens (rough: chars/4). If `input_class=ec-brief` AND estimated token count < 20:
    - Set `brief_length_advisory: short_brief` in the output.
    - This advisory propagates to N-NORMALIZE as a signal to set `brief_expansion_confidence: LOW` in its normalize_digest.
@@ -107,6 +193,18 @@ required_output_sections: [input_class, preflight_status]
    ## preflight_status
    pass
 
+   ## evolution_mode
+   <greenfield|overlay|evolve|evolve-aggressive>
+
+   ## complex_mode
+   <true|false>  (present always; true when --complex was supplied)
+
+   ## contexts_provided_count
+   <0|1|2>
+
+   ## waiver_justification
+   <verbatim justification string>  (present only when evolution_mode == 'evolve-aggressive')
+
    ## brief_length_advisory
    <short_brief | adequate>  (omit this field if adequate)
 
@@ -116,7 +214,9 @@ required_output_sections: [input_class, preflight_status]
    ## notes
    <any relevant observations about the input, including short-brief advisory and fragment advisory if triggered>
    ```
-   Set signal: `preflight_status=pass`, `input_class=<class>`.
+   Set signals: `preflight_status=pass`, `input_class=<class>`, `evolution_mode=<mode>`, `complex_mode=<true|false>`, `contexts_provided_count=<n>`.
+
+   **Backward compatibility note (HC-10).** `evolution_mode=overlay` is the default for single-context invocations (branch J). v4.2.0-style invocations (`--context` alone, or `--context-spec` alone) produce identical downstream behavior to v4.2.0 because `evolution_mode=overlay` instructs N-CONTEXT-ANALYZE to emit the legacy `preservation_contract` (see N-CONTEXT-ANALYZE step 1 mode-branch declaration + step 3.5 mode-dependent emission). Only `evolution_mode in {evolve, evolve-aggressive}` activates the v4.3 fusion pipeline (N-FUSION-ANALYZE + mode-dependent constraint emission). `--complex` (branches G/H) raises topology caps without activating fusion.
 
 ## Scale gates
 - tokens: 2000

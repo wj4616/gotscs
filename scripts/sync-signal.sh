@@ -8,10 +8,15 @@
 # Values are interpreted as JSON: bare `true`/`false`/`null`/numbers stay typed; everything
 # else becomes a string. Use `key=present` for the "stage signal emitted" convention.
 #
+# Append form (Tier-3 audit fix): keys ending in `_append` push the value onto the named
+# array. The target array name is the key with `_append` stripped, and the field MUST
+# already exist as an array in SIGNAL_STATE.json.
+#
 # Examples:
 #   sync-signal.sh "$SESSION_DIR" preflight_status=pass input_class=ec-brief
 #   sync-signal.sh "$SESSION_DIR" gate_pass=true retry_count_design=1
 #   sync-signal.sh "$SESSION_DIR" graph_spec=present
+#   sync-signal.sh "$SESSION_DIR" degradation_notices_append="post_emit_audit:skipped"
 #
 # Used by: orchestrator SKILL.md (every Wave barrier) — replaces ad-hoc inline jq blocks.
 
@@ -41,6 +46,14 @@ for kv in "$@"; do
   fi
   k="${kv%%=*}"
   v="${kv#*=}"
+  # Append mode: <field>_append=<value>  →  jq `.field += [$value]` (Tier-3 audit fix)
+  if [[ "$k" == *_append ]]; then
+    target="${k%_append}"
+    arg_name="v_${#_ARGS[@]}"
+    _ARGS+=(--arg "$arg_name" "$v")
+    _FILTER="$_FILTER | .$target += [\$$arg_name]"
+    continue
+  fi
   # Auto-type: true/false/null/integer stay as JSON literals; everything else is a string.
   if [[ "$v" == "true" || "$v" == "false" || "$v" == "null" || "$v" =~ ^-?[0-9]+$ ]]; then
     _FILTER="$_FILTER | .$k = $v"

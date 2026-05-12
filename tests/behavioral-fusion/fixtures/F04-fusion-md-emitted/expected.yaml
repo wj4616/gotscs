@@ -1,0 +1,42 @@
+test_id: FUSION-04
+description: "FUSION.md emitted into produced skill in evolve mode"
+given:
+  evolution_mode: evolve
+  contexts_provided_count: 2  # --context AND --context-spec both supplied
+  no_fusion_doc_flag: false   # default — FUSION.md should be emitted
+then:
+  produced_skill_files:
+    must_exist:
+      - "FUSION.md"
+      - "REGRESSION.md"
+      - "SKILL.md"
+      - "graph.json"
+      - "modules/"
+  fusion_md_sections:
+    # Per V26(a) post-F201 fix — 10 ## sections + YAML header fields
+    must_contain_headings:
+      - "## fusion_sources"
+      - "## precedence_stack"
+      - "## delta_matrix"
+      - "## preservation_map"
+      - "## divergence_map"
+      - "## inheritance_map"
+      - "## risk_assessment"
+      - "## fusion_decisions"
+      - "## decomposition_tasks"
+      - "## fusion_constraints_applied"
+    must_contain_header_fields:
+      - "evolution_mode:"
+      - "gotscs_version:"
+      - "timestamp:"
+  rationale_md_sections:
+    must_contain_heading: "## Fusion Redesign Justifications"  # per spec §5.1.1
+  skill_md_sections:
+    must_contain_heading: "## GENESIS"  # per F206 fix
+notes: |
+  This is the simplest behavioral check — verifies the emission contracts
+  are honored when GOTSCS runs in evolve mode. Failure modes:
+  - FUSION.md missing → V26(a) violation (expected halt-on-V26-fusion-md-missing)
+  - REGRESSION.md missing → V26(b) violation
+  - GENESIS heading missing → §0 EVOLUTION_MODE DECLARATION not rendered
+  - Fusion Redesign Justifications section missing → DD-12 evolve-mode extension not applied

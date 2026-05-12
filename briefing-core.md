@@ -1,30 +1,31 @@
-# GOTSCS Briefing — H.1-H.9 Schema Reference (v4.0.0)
+# GOTSCS Briefing — H.1-H.9 Schema Reference (v4.3.0)
 
-This file is read by all spawn subagents at the start of their protocol (HC-13 module-delegation).
+This file is read by all spawn subagents at the start of their protocol (HC-13b module-delegation).
 
-## Node Quickref (v4.0.0 — 19 nodes, 2 conditional, 58 edges, 10 Waves)
+## Node Quickref (v4.3.0 — 20 nodes, 3 conditional, 64 edges, 10 Waves)
 
 | Node ID | Wave | Hat | Type | Brief |
 |---------|------|-----|------|-------|
-| N-PREFLIGHT | 1 | gate | PREFLIGHT | Validate + classify input (6 input classes) |
+| N-PREFLIGHT | 1 | gate | PREFLIGHT | Validate + classify input (6 input classes); v4.3 adds evolution_mode resolution |
 | N-NORMALIZE | 2 | extractor | INGEST | Extract structured skill fields |
-| N-CONTEXT-ANALYZE | 2 | analyzer | ANALYZER | (conditional) Context skill/spec archaeology |
+| N-CONTEXT-ANALYZE | 2 | analyzer | ANALYZER | (conditional) Context skill/spec archaeology; v4.3 emits context_advisory + redesign_candidates in evolve mode |
+| N-FUSION-ANALYZE | 2 | aggregator | AGGREGATION | **v4.3 NEW (conditional, evolve mode only):** Synthesize brief + spec + skill via P1>P2>P3>P4 precedence; emit fusion_plan + fusion_decisions + 11-section payload |
 | N-TOPOLOGY | 3 | analyzer | ANALYZER | H.3 topology decision tree |
-| N-DECOMPOSE | 3 | analyzer | DECOMPOSITION | Node type decomposition |
-| N-CONSTRAINTS | 3 | analyzer | ANALYZER | Constraint inventory + AP catalogue |
-| N-AGG-DESIGN | 4 | aggregator | AGGREGATION | Mid-graph synthesis (HG1) |
-| N-DESIGN-GATE | 5 | gate | GATE | Pre-artifact HC-08 quality gate |
+| N-DECOMPOSE | 3 | analyzer | DECOMPOSITION | Node type decomposition; v4.3 adds 8-category task taxonomy + atomicity arithmetic |
+| N-CONSTRAINTS | 3 | analyzer | ANALYZER | Constraint inventory + AP catalogue; v4.3 mode-dependent emission (hard/soft/fusion_constraints FC-01..FC-09) |
+| N-AGG-DESIGN | 4 | aggregator | AGGREGATION | Mid-graph synthesis (HG1); v4.3 consumes fusion_plan as authoritative seed + emits fusion_task_trace |
+| N-DESIGN-GATE | 5 | gate | GATE | Pre-artifact HC-08 quality gate; v4.3 evolve-mode addendum (FC-04 + FC-07 verification) |
 | N-REGISTRY | 6 | generator | GENERATOR | Node Registry table |
 | N-EDGES | 6 | generator | GENERATOR | Edge Table (H.2 closed vocab) |
 | N-WAVES | 6 | analyzer | PLANNER | Wave Plan + Mode Matrix |
 | N-SYNTH-GRAPH | 7 | aggregator | SYNTHESIS | type=SYNTHESIS (HC-16/AP-06) |
 | N-SPEC-ARTIFACT | 8 | formatter | FORMATTER | Mode-conditional spec rendering |
 | N-MODULES | 9 | generator | GENERATOR | **v3.1.0 (P-001):** Per-file module emission to stages/modules/<id>.md |
-| N-JSON | 9 | formatter | FORMATTER | graph.json + hats.json serialization (HC-22 retiered) |
-| N-SKILL-RENDER | 9 | formatter | FORMATTER | **v3.1.0 NEW (P-002):** Dedicated SKILL.md renderer; assembles §0–§7 + Appendix A |
-| N-VERIFY | 10 | verifier | VERIFIER | V1-V19 battery + H.4 contract; **V11 BLOCKING (P-003)** |
-| N-EMIT | 10 | persister | PERSISTER | Write skill files; **v3.1.0 (P-004): post-emit smoke test gate** |
-| N-BEHAVIORAL | 10 | verifier | VERIFIER | **v3.1.0 NEW (P-006, conditional):** Behavioral acceptance test of produced skill (advisory) |
+| N-JSON | 9 | formatter | FORMATTER | graph.json + hats.json + graph.schema.json serialization |
+| N-SKILL-RENDER | 9 | formatter | FORMATTER | **v3.1.0 (P-002):** Dedicated SKILL.md renderer; assembles §0–§8 (v4.2 inlined RUNTIME CONVENTIONS per DD-11) |
+| N-VERIFY | 10 | verifier | VERIFIER | V-battery (V1-V25 + V26 a/b/c/d/e/f evolve-mode residual) + H.4 contract; **V11 + V5-ext BLOCKING (P-003)** |
+| N-EMIT | 10 | persister | PERSISTER | Write skill files; **v4.2 (P-004): post-emit smoke test gate**; v4.3 step 4.4 emits FUSION.md + REGRESSION.md in evolve mode |
+| N-BEHAVIORAL | 10 | verifier | VERIFIER | **v3.1.0 (P-006, conditional):** Behavioral acceptance test of produced skill (advisory) |
 
 <briefing>
 
@@ -158,13 +159,13 @@ These constraints govern every skill produced by GOTSCS. Spawn agents apply them
 | HC | Name | Constraint |
 |---|---|---|
 | HC-01 | GRAPH-AS-TRUTH | graph.json is single source of topology; no duplication of node/edge definitions into SKILL.md or briefing-core.md. |
-| HC-02 | 20-NODE CAP | ≤20 nodes, ≤10 waves, ≤60 edges; fewer is fine if functionality preserved. |
+| HC-02 | 20-NODE CAP | Produced skills: ≤30 nodes, ≤15 waves, ≤100 edges (≤36/≤18/≤120 under `--evolve-aggressive` waiver; ≤40/≤20/≤150 under `--complex`). GOTSCS itself uses an internal cap of ≤65 edges per v4.3 schema (added E60-E64 fusion edges). Fewer is fine if functionality preserved. |
 | HC-03 | CLOSED-EDGE-VOCAB | 6 runtime edge types only: required, optional, gate-open, forward-conditional, back-edge, terminal. No inventions. |
 | HC-04 | CLOSED-NODE-TYPE-VOCAB | H.1 typed enum above is canonical. No invented node types. |
-| HC-06 | V-BATTERY-COMPLETENESS | Every V1-V19 check preserved or explicitly replaced with an equivalent. |
+| HC-06 | V-BATTERY-COMPLETENESS | Every V1-V25 check preserved or explicitly replaced with an equivalent. v4.3 adds V26 (a/b/c/d/e/f) evolve-mode residual battery: a/b/c/d/f BLOCKING in evolve mode, e ADVISORY. |
 | HC-08 | NON-DETERMINISM | Pipeline is non-deterministic; do not attempt to force determinism. |
 | HC-09 | INPUT-CLASS-COMPLETENESS | All 6 input classes remain (ec-brief, ec-skill, ec-spec, ec-both, ec-refeed, ec-inject). |
-| HC-10 | FLAG-PRESERVATION | `--skill`, `--spec`, `--both`, `--context`, `--context-spec`, `--reuse-session`, `--behavioral-test` all preserved. |
+| HC-10 | FLAG-PRESERVATION | `--skill`, `--spec`, `--both`, `--context`, `--context-spec`, `--reuse-session`, `--behavioral-test`, `--review-gates` all preserved. v4.3 ADDITIONS (purely additive, default-off): `--strict`, `--evolve`, `--evolve-aggressive`, `--waiver-justification`, `--no-fusion-doc`, `--context-type`, `--context-spec-type`, `--no-post-audit`. |
 | HC-11 | MODE-DISAMBIGUATION | Orchestrator MUST ask user when no mode flag given. |
 | HC-12 | SESSION-OUTPUT-STRUCTURE | Per-node stage files at `~/docs/gotscs-output/` remain (audit trail + `--reuse-session`). |
 | HC-13b | MODULE-DELEGATION | Every spawn reads `briefing-core.md` at protocol start, plus declared appendices per the per-node read-map above. |
@@ -246,3 +247,89 @@ detection_constraint:
 **Brief authors:** when adding a new detection constraint, include the table above (or its equivalent) inside the brief's "Edge-Case Handling" section. Producers (the GOTSCS pipeline + downstream node protocols) treat the examples as **acceptance criteria for the implementation, not as exhaustive specification**.
 
 **Adversarial check:** an attacker could plant biased examples that bias detection toward false negatives (e.g., misclassify a true contradiction as "ignore"). Mitigation: require AT LEAST 3 examples per constraint, AT LEAST one of each kind {true-positive, true-negative, ambiguous}; the GOTSCS pipeline's N-CONSTRAINTS step 4.5 (when added) will flag any detection constraint with fewer than 3 categorized examples as `[FRAGMENT: detection-spec incomplete]` and downgrade `brief_quality_advisory` to `fragment_detected`.
+
+---
+
+## §EVOLVE — v4.3 Evolve-Mode Schema Extension (NEW v4.3 Phase 4)
+
+This section documents the schema extensions introduced by v4.3.0 evolution-spec implementation. It is loaded by N-FUSION-ANALYZE, N-CONSTRAINTS, N-DECOMPOSE, and N-AGG-DESIGN when `evolution_mode in {evolve, evolve-aggressive}`. Skills produced under `evolution_mode in {overlay, greenfield}` continue to inherit the pre-v4.3 H.1-H.9 schema unchanged.
+
+### EVOLVE-1 — evolution_mode taxonomy
+
+A GOTSCS run is classified into exactly one of four `evolution_mode` values, resolved by N-PREFLIGHT step 4a from `contexts_provided_count` and the `--strict` / `--evolve` / `--evolve-aggressive` flag set:
+
+| Value | Activation | Pipeline behavior |
+|---|---|---|
+| `greenfield` | 0 contexts (no `--context` AND no `--context-spec`) | v4.2 baseline; N-CONTEXT-ANALYZE skipped; N-FUSION-ANALYZE skipped. |
+| `overlay` | 1 context, OR 2+ contexts with `--strict`, OR `ec-refeed` regardless of flags | v4.2 baseline preserved byte-for-byte; N-CONTEXT-ANALYZE emits legacy `preservation_contract`; N-FUSION-ANALYZE skipped. AP-15 (no replacement without defect) in full force. |
+| `evolve` | 2+ contexts (DEFAULT) OR explicit `--evolve` | v4.3 fusion pipeline active; N-CONTEXT-ANALYZE downgrades to `context_advisory` + `redesign_candidates`; N-FUSION-ANALYZE synthesizes `fusion_plan`; mode-dependent emission in N-CONSTRAINTS / N-DECOMPOSE / N-AGG-DESIGN. Standard HC-02 caps in produced skills (≤30 nodes / ≤15 waves / ≤100 edges). |
+| `evolve-aggressive` | 2+ contexts AND `--evolve-aggressive --waiver-justification "<≥50 chars>"` | Same as `evolve` plus relaxed HC-02 caps in produced skills (≤36 nodes / ≤18 waves / ≤120 edges). Waiver justification persisted to `stages/waiver_justification.txt`, FUSION.md, and produced graph.json metadata (FC-09). |
+| `complex` | explicit `--complex` (no contexts required) | greenfield/overlay pipeline with relaxed HC-02 caps in produced skills (≤40 nodes / ≤20 waves / ≤150 edges). NO fusion pipeline; N-FUSION-ANALYZE skipped; N-CONTEXT-ANALYZE runs in legacy preservation_contract mode. No waiver justification required. |
+
+### EVOLVE-2 — Precedence stack (P1 > P2 > P3 > P4)
+
+When in `evolve` or `evolve-aggressive` mode, conflicts across context sources are resolved by N-FUSION-ANALYZE step 6 using a strict ladder:
+
+| Priority | Source | Authority | Override rule |
+|---|---|---|---|
+| P1 | `design_brief` (the user's prompt text) | Optimization objective — wins | Cannot violate universal hard constraints (HC-02 caps ≤30/≤15/≤100 standard, ≤40/≤20/≤150 under `--complex`, HC-03 edge typology, HC-04 schema enums, any HC tagged `class: SECURITY` / `class: PRIVACY`); halt-on-brief-violation if attempted. |
+| P2 | `spec_enhancement` (`--context-spec`) | Design intent | Wins when brief is silent on the conflict. |
+| P3 | `skill_executable` (`--context`) | Reference implementation | Wins when brief AND spec are both silent. |
+| P4 | GOTSCS defaults / H.1-H.9 schema | Baseline | Fallback only. |
+
+Every override decision is recorded in `fusion_decisions[]` with `{conflict_id, winning_source, losing_source, rationale, brief_quote_or_null, external_contract_locked}`.
+
+### EVOLVE-3 — External-contract item registry (cross-reference)
+
+Items that constitute the skill's **external contract** default to `resolved_action: preserve` regardless of P1/P2 silence on internal details — this is the FC-04/FC-05 enforcement floor. The canonical 5-category enumeration is in `briefing-appendix-contract.md §EC-FC04` (registry IDs EC-FC04-1 through EC-FC04-5):
+
+- EC-FC04-1: Invocation signature (CLI flags + positional args)
+- EC-FC04-2: Output schema (required artifact frontmatter / JSON schema fields)
+- EC-FC04-3: Universal hard constraints (HC-02/03/04 + SECURITY/PRIVACY-class HC items)
+- EC-FC04-4: Stable signal names (multi-consumer signal_field broadcasts)
+- EC-FC04-5: Sink identifiers (graph.json metadata.sinks[])
+
+Override format: brief includes `contract_override: EC-FC04-<N> — <reason>` to authorize divergence; rationale persists into `fusion_decisions[]` with `external_contract_overridden: true`.
+
+### EVOLVE-4 — Fusion constraint catalogue (FC-01 through FC-09)
+
+When in `evolve` or `evolve-aggressive` mode, N-CONSTRAINTS step 6 emits these 9 constraints (in addition to the legacy `inventory_items` / `anti_patterns_guarded` / `ai_advantages_selected`). Cross-cutting; consumed by N-AGG-DESIGN step 1.5 + N-VERIFY V26:
+
+| FC ID | Constraint | Enforcement node |
+|---|---|---|
+| FC-01 | Every divergence from original MUST be documented in `fusion_decisions[]` | N-FUSION-ANALYZE step 7 |
+| FC-02 | If brief is silent on a design question, prefer spec over original skill | N-FUSION-ANALYZE step 6 (precedence default) |
+| FC-03 | If brief contradicts both spec and original, brief wins — but MUST include `risk_acknowledgment` in `fusion_task_trace` row | N-AGG-DESIGN step 6e + V26(d) |
+| FC-04 | INVENTORY items inherited as candidates, not mandates, EXCEPT external-contract items per `briefing-appendix-contract §EC-FC04` | N-FUSION-ANALYZE step 6 external-contract guard |
+| FC-05 | Backward compatibility advisory for internal details, MANDATORY for external behavior unless `--strict` OR `contract_override` | N-FUSION-ANALYZE step 6 + N-AGG-DESIGN step 6b |
+| FC-06 | Optimization for final utility is the primary objective | N-AGG-DESIGN synthesis |
+| FC-07 | When replacing a node, the new node MUST satisfy all functional contracts of the old node unless brief explicitly redefines them | N-VERIFY V26(c) |
+| FC-08 | Every redesign MUST have a corresponding regression test in the smoke-test battery | N-EMIT step 4.4 + N-VERIFY V26(e) (advisory) |
+| FC-09 | `--evolve-aggressive` requires `waiver_justification` ≥50 chars persisted in FUSION.md + graph.json metadata | N-PREFLIGHT step 4a + N-VERIFY V26(f) |
+
+### EVOLVE-5 — 8-category task taxonomy
+
+When in `evolve` or `evolve-aggressive` mode, N-DECOMPOSE step 6 decomposes every concrete item in `unified_topology` (countable_topology = nodes_proposed ∪ edges_proposed ∪ aggregation_carriers_proposed) into exactly one task in this closed-vocab set:
+
+| Category | Source (fusion_plan) | Description |
+|---|---|---|
+| `preserve` | preservation_map | Byte-identical retention; verify equality at V-battery |
+| `upgrade` | divergence_map; node_id preserved | Modify in-place; preserve node_id + ports + hat/tier |
+| `replace` | divergence_map; node_id changes | Drop + reimplement under FC-07 contract |
+| `merge` | divergence_map; multiple originals → one new | Combine multiple original nodes; union of contracts |
+| `add` | divergence_map; not in original | Net-new node from spec or brief |
+| `remove` | divergence_map; in original but not unified | Drop original; downstream re-routed |
+| `resequence` | divergence_map; same node_id, different wave | Move to different wave; protocol unchanged |
+| `recontract` | divergence_map; same node_id, changed aggregation_policy / port shape | Change contract without renaming; most fragile |
+
+Atomicity rule: `sum(8 category counts) == |countable_topology|`. Halt-decompose-task-arithmetic-fail on mismatch.
+
+### EVOLVE-6 — Phase 4 release rollback trigger
+
+Per spec §8 Phase 4 step 6: **if ≥1 overlay-mode skill fails regression within 48 hours of v4.3.0 release, revert to v4.2.x and freeze the v4.3 branch until the failure is root-caused.** The rollback procedure is mechanical and operates on a single set of files (the `tests/run-smoke-tests.sh` and `tests/run-regression-suite.sh` are overwritten in-place when v4.3 replaced v4.2 — there are NOT two separate suites on disk simultaneously):
+
+1. Restore every v4.2.0 file from the SHA-256 baseline at `/tmp/gotscs-v4.2.0-baseline.sha256`. Walk the manifest (29 entries); for each entry whose current sha256 differs, restore from the v4.2.x backup directory created during the HC-26 pre-release backup step.
+2. Run the now-restored `tests/run-smoke-tests.sh` (will revert to 41 tests / v4.2 expected counts 19/59/2-conditional/11-spawn) and `tests/run-regression-suite.sh` (14 mutations).
+3. Re-engagement of v4.3 requires (a) root cause addressed AND (b) fresh 5-brief regression battery per HC-26 RELEASE-SAFETY-GATE — run GOTSCS end-to-end on 5 distinct briefs covering ec-brief / ec-skill / ec-spec / ec-both-strict / ec-both-evolve paths. (HC-13b is a separate constraint covering subagent module-delegation reads, NOT the regression battery.)
+
+`cites_nodes:` N-PREFLIGHT, N-CONTEXT-ANALYZE, N-FUSION-ANALYZE, N-CONSTRAINTS, N-DECOMPOSE, N-AGG-DESIGN, N-VERIFY, N-EMIT, N-SKILL-RENDER + role_knowledge:fusion_topology, role_knowledge:precedence_resolution

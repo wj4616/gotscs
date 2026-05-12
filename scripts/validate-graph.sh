@@ -15,12 +15,28 @@ TARGET=""
 EXPECT_NODES=""
 EXPECT_EDGES=""
 SCHEMA_VALIDATE=""
+PRINT_REGISTRY=""
+PRINT_EDGES=""
 while [[ $# -gt 0 ]]; do
   case $1 in
     --target)          TARGET="$2"; shift 2 ;;
     --expect-nodes)    EXPECT_NODES="$2"; shift 2 ;;
     --expect-edges)    EXPECT_EDGES="$2"; shift 2 ;;
     --schema-validate) SCHEMA_VALIDATE="1"; shift ;;
+    --print-registry)  PRINT_REGISTRY="1"; shift ;;
+    --print-edges)     PRINT_EDGES="1"; shift ;;
+    -h|--help)
+      cat <<EOF
+Usage: validate-graph.sh [options]
+  --target <skill_dir>      Validate a produced skill's graph.json (default: GOTSCS itself)
+  --expect-nodes N          Assert node count == N
+  --expect-edges N          Assert edge count == N
+  --schema-validate         Run jsonschema validation against graph.schema.json
+  --print-registry          Print Node Registry table to stdout (then exit)
+  --print-edges             Print Edge Table to stdout (then exit)
+  -h, --help                Show this help
+EOF
+      exit 0 ;;
     *) shift ;;
   esac
 done
@@ -43,6 +59,42 @@ fi
 if [[ ! -f "$GRAPH" ]]; then
   echo "validate-graph.sh: graph.json not found at $GRAPH" >&2
   exit 1
+fi
+
+# M5 fix: --print-registry / --print-edges (HC-01 source-of-truth inspection).
+if [[ -n "$PRINT_REGISTRY" ]]; then
+  python3 - "$GRAPH" <<'PYEOF'
+import json, sys
+g = json.load(open(sys.argv[1]))
+print("# Node Registry (from graph.json — HC-01 source of truth)")
+print()
+print("| node_id | type | hat | exec_type | tier | wave | conditional |")
+print("|---|---|---|---|---|---|---|")
+for n in g["nodes"]:
+    cond = "yes" if n.get("conditional") else "no"
+    print(f"| {n['id']} | {n['type']} | {n['hat']} | {n['exec_type']} | {n.get('tier','-')} | {n.get('wave','-')} | {cond} |")
+print()
+print(f"Total: {len(g['nodes'])} nodes ({sum(1 for n in g['nodes'] if n.get('conditional')) } conditional)")
+PYEOF
+  exit 0
+fi
+
+if [[ -n "$PRINT_EDGES" ]]; then
+  python3 - "$GRAPH" <<'PYEOF'
+import json, sys
+g = json.load(open(sys.argv[1]))
+print("# Edge Table (from graph.json — HC-01 source of truth)")
+print()
+print("| edge_id | source | target | edge_type | signal_field | gate_condition |")
+print("|---|---|---|---|---|---|")
+for e in g["edges"]:
+    print(f"| {e['id']} | {e['source']} | {e['target']} | {e['edge_type']} | {e.get('signal_field','-')} | {e.get('gate_condition','-')} |")
+print()
+from collections import Counter
+dist = Counter(e["edge_type"] for e in g["edges"])
+print(f"Total: {len(g['edges'])} edges  •  distribution: " + ", ".join(f"{k}={v}" for k,v in sorted(dist.items())))
+PYEOF
+  exit 0
 fi
 
 python3 - "$GRAPH" "$EXPECT_NODES" "$EXPECT_EDGES" "$SCHEMA_VALIDATE" <<'PYEOF'
